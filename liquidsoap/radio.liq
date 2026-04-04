@@ -147,18 +147,13 @@ output.file.hls(
   segment_duration=4.0,
   segments=6,
   segments_overhead=12,
+  perm=0o644,
   playlist="live.m3u8",
   [
     # Low — mobile on poor connections
-    ("aac_48",
+    ("aac_64",
       %ffmpeg(format="mpegts",
-        %audio(codec="aac", b="48k", channels=2, ar=44100, profile="aac_he")
-      )
-    ),
-    # Medium — mobile on decent connections
-    ("aac_96",
-      %ffmpeg(format="mpegts",
-        %audio(codec="aac", b="96k", channels=2, ar=44100)
+        %audio(codec="aac", b="64k", channels=2, ar=44100)
       )
     ),
     # Standard — wifi / good mobile
