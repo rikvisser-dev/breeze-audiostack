@@ -27,6 +27,11 @@ if [ -f "certbot/conf/live/$ICECAST_HOSTNAME/fullchain.pem" ]; then
         echo "Keeping existing certificate."
         exit 0
     fi
+    echo "Removing old certificate files..."
+    rm -rf "certbot/conf/live/$ICECAST_HOSTNAME"
+    rm -rf "certbot/conf/archive/$ICECAST_HOSTNAME"
+    rm -f  "certbot/conf/renewal/$ICECAST_HOSTNAME.conf"
+    echo "Old certificate removed."
 fi
 
 EMAIL="${LETSENCRYPT_EMAIL:-}"

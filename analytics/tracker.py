@@ -175,6 +175,9 @@ def parse_sources(stats):
 
 def track_listeners(sources):
     """Send per-mount listener counts to PostHog."""
+    if not POSTHOG_API_KEY:
+        return
+
     total_listeners = 0
 
     for source in sources:
@@ -219,20 +222,22 @@ def track_source_status(sources):
 
     # Detect new sources
     for mount in current_mounts - prev_mounts:
-        posthog.capture(
-            distinct_id=DISTINCT_ID,
-            event="stream_source_connected",
-            properties={"mount": mount},
-        )
+        if POSTHOG_API_KEY:
+            posthog.capture(
+                distinct_id=DISTINCT_ID,
+                event="stream_source_connected",
+                properties={"mount": mount},
+            )
         print(f"[analytics] Source connected: {mount}")
 
     # Detect disconnected sources
     for mount in prev_mounts - current_mounts:
-        posthog.capture(
-            distinct_id=DISTINCT_ID,
-            event="stream_source_disconnected",
-            properties={"mount": mount},
-        )
+        if POSTHOG_API_KEY:
+            posthog.capture(
+                distinct_id=DISTINCT_ID,
+                event="stream_source_disconnected",
+                properties={"mount": mount},
+            )
         print(f"[analytics] Source disconnected: {mount}")
 
         # Also alert on source disconnect via Pushover
@@ -266,15 +271,15 @@ def polling_loop():
 # ============================================================
 
 def main():
+    print("[analytics] Starting Breeze Radio analytics + alerts service")
+
     if not POSTHOG_API_KEY and not PUSHOVER_USER_KEY:
         print("[analytics] Neither POSTHOG_API_KEY nor PUSHOVER_USER_KEY set.", file=sys.stderr)
-        print("[analytics] Configure at least one to enable analytics/alerts.", file=sys.stderr)
-        sys.exit(1)
+        print("[analytics] Running webhook server only (for Liquidsoap silence alerts logging).", file=sys.stderr)
 
-    print("[analytics] Starting Breeze Radio analytics + alerts service")
-    print(f"[analytics] Polling {ICECAST_URL} every {POLL_INTERVAL}s")
     if POSTHOG_API_KEY:
         print(f"[analytics] PostHog events → {POSTHOG_HOST}")
+        print(f"[analytics] Polling {ICECAST_URL} every {POLL_INTERVAL}s")
     if PUSHOVER_USER_KEY:
         print(f"[alerts] Pushover alerts enabled (cooldown: {ALERT_COOLDOWN}s)")
 
@@ -282,8 +287,13 @@ def main():
     webhook_thread = threading.Thread(target=start_webhook_server, daemon=True)
     webhook_thread.start()
 
-    # Start polling loop
-    polling_loop()
+    if POSTHOG_API_KEY:
+        # Start polling loop (blocks forever)
+        polling_loop()
+    else:
+        # No PostHog — just keep the webhook server alive
+        print("[analytics] No PostHog key — skipping Icecast polling, webhook server active")
+        webhook_thread.join()
 
 
 if __name__ == "__main__":

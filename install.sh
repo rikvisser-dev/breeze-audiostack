@@ -340,6 +340,18 @@ step 5 "SSL certificate"
 # Source .env for hostname
 source .env 2>/dev/null || true
 
+# Check for stale/invalid cert (e.g. from a failed previous run)
+if [ -f "certbot/conf/live/${ICECAST_HOSTNAME}/fullchain.pem" ]; then
+    CERT_SIZE=$(wc -c < "certbot/conf/live/${ICECAST_HOSTNAME}/fullchain.pem" 2>/dev/null || echo 0)
+    if [ "$CERT_SIZE" -lt 1500 ]; then
+        warn "Found a possibly invalid/stale certificate (${CERT_SIZE} bytes). Removing it..."
+        rm -rf "certbot/conf/live/${ICECAST_HOSTNAME}"
+        rm -rf "certbot/conf/archive/${ICECAST_HOSTNAME}"
+        rm -f  "certbot/conf/renewal/${ICECAST_HOSTNAME}.conf"
+        success "Stale certificate removed"
+    fi
+fi
+
 if [ -f "certbot/conf/live/${ICECAST_HOSTNAME}/fullchain.pem" ]; then
     success "SSL certificate already exists for ${ICECAST_HOSTNAME}"
 else
