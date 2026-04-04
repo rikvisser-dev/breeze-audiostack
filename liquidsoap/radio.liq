@@ -6,9 +6,9 @@
 settings.harbor.bind_addrs.set(["0.0.0.0"])
 settings.log.level.set(3)
 
-station_name = environment.get("STATION_NAME", "Radio Station")
-harbor_password = environment.get("HARBOR_PASSWORD", "changeme")
-icecast_pass = environment.get("ICECAST_SOURCE_PASSWORD", "changeme")
+station_name = environment.get(default="Radio Station", "STATION_NAME")
+harbor_password = environment.get(default="changeme", "HARBOR_PASSWORD")
+icecast_pass = environment.get(default="changeme", "ICECAST_SOURCE_PASSWORD")
 icecast_host = "icecast"
 icecast_port = 8000
 
@@ -50,8 +50,8 @@ radio = fallback(
 )
 
 # --- Silence detection + Pushover alerts ---
-silence_threshold = float_of_string(environment.get("SILENCE_THRESHOLD_DB", "-40"))
-silence_duration = float_of_string(environment.get("SILENCE_DURATION", "15"))
+silence_threshold = float_of_string(environment.get(default="-40", "SILENCE_THRESHOLD_DB"))
+silence_duration = float_of_string(environment.get(default="15", "SILENCE_DURATION"))
 
 radio = blank.detect(
   radio,
