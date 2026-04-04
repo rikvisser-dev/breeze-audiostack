@@ -50,15 +50,15 @@ Fallback chain: Primary → Fallback → Emergency file (automatic, no manual in
 
 | Mount | Format | Bitrate | URL |
 |---|---|---|---|
-| `/stream-mp3-128` | MP3 | 128 kbps | `http://<host>/listen/stream-mp3-128` |
-| `/stream-mp3-320` | MP3 | 320 kbps | `http://<host>/listen/stream-mp3-320` |
-| `/stream-aac-128` | AAC | 128 kbps | `http://<host>/listen/stream-aac-128` |
-| `/stream-ogg-128` | Ogg Vorbis | 128 kbps | `http://<host>/listen/stream-ogg-128` |
+| `/stream-mp3-128` | MP3 | 128 kbps | `https://<host>/listen/stream-mp3-128` |
+| `/stream-mp3-320` | MP3 | 320 kbps | `https://<host>/listen/stream-mp3-320` |
+| `/stream-aac-128` | AAC | 128 kbps | `https://<host>/listen/stream-aac-128` |
+| `/stream-ogg-128` | Ogg Vorbis | 128 kbps | `https://<host>/listen/stream-ogg-128` |
 
 ### HLS (for mobile)
 
 ```
-http://<host>/hls/live.m3u8
+https://<host>/hls/live.m3u8
 ```
 
 Adaptive with AAC 128k and MP3 128k variants.
@@ -79,18 +79,24 @@ Adaptive with AAC 128k and MP3 128k variants.
    cp /path/to/your/fallback.mp3 emergency-audio/fallback.mp3
    ```
 
-3. **Start the stack**
+3. **Obtain SSL certificate**
+   ```bash
+   # First run only — obtains Let's Encrypt certificate
+   ./init-letsencrypt.sh
+   ```
+
+4. **Start the stack**
    ```bash
    docker compose up -d
    ```
 
-4. **Connect your studio encoder**
+5. **Connect your studio encoder**
 
    Configure BUTT (or similar) to send:
    - **Primary stream**: Host `<server-ip>`, Port `8010`, Mount `/primary`, Password from `.env`
    - **Fallback stream**: Host `<server-ip>`, Port `8011`, Mount `/secondary`, Password from `.env`
 
-5. **Verify**
+6. **Verify**
    - Icecast admin: `http://<host>/icecast-admin/`
    - Test stream: `http://<host>/listen/stream-mp3-128` in VLC
    - HLS: `http://<host>/hls/live.m3u8` in Safari/VLC
@@ -106,6 +112,8 @@ All secrets and settings are managed via `.env`:
 | `HARBOR_PASSWORD` | Password for studio → Liquidsoap connections |
 | `ICECAST_HOSTNAME` | Public hostname for Icecast |
 | `ICECAST_MAX_LISTENERS` | Maximum concurrent listeners |
+| `LETSENCRYPT_EMAIL` | Email for Let's Encrypt notifications |
+| `LETSENCRYPT_STAGING` | Set to `1` for test certificates |
 | `POSTHOG_API_KEY` | PostHog project API key |
 | `POSTHOG_HOST` | PostHog instance URL |
 | `POSTHOG_POLL_INTERVAL` | Stats polling interval in seconds (default: 30) |
@@ -124,6 +132,7 @@ The analytics sidecar sends the following events to PostHog:
 ```
 ├── docker-compose.yml
 ├── .env.example
+├── init-letsencrypt.sh
 ├── icecast/
 │   ├── Dockerfile
 │   └── icecast.xml
@@ -131,6 +140,7 @@ The analytics sidecar sends the following events to PostHog:
 │   ├── Dockerfile
 │   └── radio.liq
 ├── nginx/
+│   ├── Dockerfile
 │   └── nginx.conf
 ├── analytics/
 │   ├── Dockerfile

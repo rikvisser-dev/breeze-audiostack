@@ -41,16 +41,31 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:alpine
+    build: ./nginx
     container_name: breezeradio-nginx
     depends_on:
       - icecast
       - liquidsoap
     ports:
       - "80:80"
+      - "443:443"
+    environment:
+      - ICECAST_HOSTNAME=${ICECAST_HOSTNAME}
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - hls-data:/hls:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    networks:
+      - streaming
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    container_name: breezeradio-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     networks:
       - streaming
     restart: unless-stopped

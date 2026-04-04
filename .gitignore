@@ -4,3 +4,4 @@ emergency-audio/*.flac
 emergency-audio/*.wav
 logs/
 hls-data/
+certbot/
