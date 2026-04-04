@@ -78,10 +78,6 @@ end)
 
 # --- Icecast outputs (multiple bitrates/formats) ---
 
-# Icecast reconnect settings for resilience
-icecast_restart = true
-icecast_restart_delay = 5
-
 output.icecast(
   %mp3(bitrate=128, samplerate=44100, stereo=true),
   host=icecast_host, port=icecast_port,
@@ -89,8 +85,6 @@ output.icecast(
   mount="/stream-mp3-128",
   name="#{station_name} - MP3 128k",
   description=station_name,
-  restart=icecast_restart,
-  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -101,8 +95,6 @@ output.icecast(
   mount="/stream-mp3-192",
   name="#{station_name} - MP3 192k",
   description=station_name,
-  restart=icecast_restart,
-  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -113,8 +105,6 @@ output.icecast(
   mount="/stream-mp3-320",
   name="#{station_name} - MP3 320k",
   description=station_name,
-  restart=icecast_restart,
-  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -125,8 +115,6 @@ output.icecast(
   mount="/stream-aac-128",
   name="#{station_name} - AAC 128k",
   description=station_name,
-  restart=icecast_restart,
-  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -137,8 +125,6 @@ output.icecast(
   mount="/stream-aac-192",
   name="#{station_name} - AAC 192k",
   description=station_name,
-  restart=icecast_restart,
-  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -149,8 +135,6 @@ output.icecast(
   mount="/stream-ogg-128",
   name="#{station_name} - Ogg 128k",
   description=station_name,
-  restart=icecast_restart,
-  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -161,8 +145,6 @@ output.icecast(
   mount="/stream-flac",
   name="#{station_name} - FLAC HiFi",
   description=station_name,
-  restart=icecast_restart,
-  restart_delay=icecast_restart_delay,
   radio
 )
 
