@@ -6,6 +6,9 @@
 settings.harbor.bind_addrs.set(["0.0.0.0"])
 settings.log.level.set(3)
 
+# Frame & buffering settings for stability
+settings.frame.duration.set(0.04)
+
 station_name = environment.get(default="Radio Station", "STATION_NAME")
 harbor_password = environment.get(default="changeme", "HARBOR_PASSWORD")
 icecast_pass = environment.get(default="changeme", "ICECAST_SOURCE_PASSWORD")
@@ -20,7 +23,7 @@ primary = input.harbor(
   port=8010,
   password=harbor_password,
   max=30.0,
-  buffer=5.0
+  buffer=10.0
 )
 
 # Fallback: lower bitrate Ogg stream
@@ -29,7 +32,7 @@ secondary = input.harbor(
   port=8011,
   password=harbor_password,
   max=30.0,
-  buffer=5.0
+  buffer=10.0
 )
 
 # --- Emergency fallback ---
@@ -48,6 +51,10 @@ radio = fallback(
   track_sensitive=false,
   [primary, secondary, emergency]
 )
+
+# --- Output buffer ---
+# Smooth out jitter from encoding and network with a buffer
+radio = buffer(buffer=3.0, max=10.0, radio)
 
 # --- Silence detection + Pushover alerts ---
 silence_threshold = float_of_string(environment.get(default="-40", "SILENCE_THRESHOLD_DB"))
@@ -71,6 +78,10 @@ end)
 
 # --- Icecast outputs (multiple bitrates/formats) ---
 
+# Icecast reconnect settings for resilience
+icecast_restart = true
+icecast_restart_delay = 5
+
 output.icecast(
   %mp3(bitrate=128, samplerate=44100, stereo=true),
   host=icecast_host, port=icecast_port,
@@ -78,6 +89,8 @@ output.icecast(
   mount="/stream-mp3-128",
   name="#{station_name} - MP3 128k",
   description=station_name,
+  restart=icecast_restart,
+  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -88,6 +101,8 @@ output.icecast(
   mount="/stream-mp3-192",
   name="#{station_name} - MP3 192k",
   description=station_name,
+  restart=icecast_restart,
+  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -98,6 +113,8 @@ output.icecast(
   mount="/stream-mp3-320",
   name="#{station_name} - MP3 320k",
   description=station_name,
+  restart=icecast_restart,
+  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -108,6 +125,8 @@ output.icecast(
   mount="/stream-aac-128",
   name="#{station_name} - AAC 128k",
   description=station_name,
+  restart=icecast_restart,
+  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -118,6 +137,8 @@ output.icecast(
   mount="/stream-aac-192",
   name="#{station_name} - AAC 192k",
   description=station_name,
+  restart=icecast_restart,
+  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -128,6 +149,8 @@ output.icecast(
   mount="/stream-ogg-128",
   name="#{station_name} - Ogg 128k",
   description=station_name,
+  restart=icecast_restart,
+  restart_delay=icecast_restart_delay,
   radio
 )
 
@@ -138,6 +161,8 @@ output.icecast(
   mount="/stream-flac",
   name="#{station_name} - FLAC HiFi",
   description=station_name,
+  restart=icecast_restart,
+  restart_delay=icecast_restart_delay,
   radio
 )
 
