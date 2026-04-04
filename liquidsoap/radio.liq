@@ -58,7 +58,7 @@ end)
 
 # --- Emergency fallback ---
 # Playlist dir for emergency audio (plays any files in the directory)
-emergency = playlist("/emergency-audio", mode="normal", reload_mode="watch", reload=5.)
+emergency = playlist("/emergency-audio", mode="normal", reload_mode="watch", reload=5)
 # Silence as the ultimate last resort (infallible)
 silence = blank()
 
