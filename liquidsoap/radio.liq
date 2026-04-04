@@ -5,6 +5,7 @@
 # --- Settings ---
 settings.harbor.bind_addrs.set(["0.0.0.0"])
 settings.log.level.set(3)
+settings.init.allow_root.set(true)
 
 # Frame & buffering settings for stability
 settings.frame.duration.set(0.04)
