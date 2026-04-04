@@ -37,9 +37,12 @@ PUSHOVER_API_URL = "https://api.pushover.net/1/messages.json"
 ALERT_COOLDOWN = 300  # 5 minutes between repeated alerts
 last_alert_time = 0
 
-# Initialize PostHog
-posthog.project_api_key = POSTHOG_API_KEY
-posthog.host = POSTHOG_HOST
+# Initialize PostHog (only if a real key is provided)
+if POSTHOG_API_KEY and POSTHOG_API_KEY.startswith("phc_"):
+    posthog.project_api_key = POSTHOG_API_KEY
+    posthog.host = POSTHOG_HOST
+else:
+    POSTHOG_API_KEY = ""  # treat invalid keys as unconfigured
 
 # Track previous state for failover detection
 previous_sources = {}
