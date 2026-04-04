@@ -48,12 +48,12 @@ radio = fallback(
   [primary, secondary, emergency, silence]
 )
 
-# Guarantee infallible source for outputs
-radio = mksafe(radio)
-
 # --- Output buffer ---
 # Smooth out jitter from encoding and network with a buffer
 radio = buffer(buffer=3.0, max=10.0, radio)
+
+# Guarantee infallible source after all processing
+radio = mksafe(radio)
 
 # --- Silence detection + Pushover alerts ---
 silence_threshold = float_of_string(environment.get(default="-40", "SILENCE_THRESHOLD_DB"))
