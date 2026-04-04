@@ -22,9 +22,10 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 
-# CORS — allow the Appwrite Sites frontend
-CORS_ORIGIN = os.getenv("STATUS_PANEL_CORS_ORIGIN", "*")
-CORS(app, resources={r"/api/*": {"origins": CORS_ORIGIN}}, supports_credentials=False)
+# CORS — allow the Appwrite Sites frontend (no wildcard default)
+CORS_ORIGIN = os.getenv("STATUS_PANEL_CORS_ORIGIN", "")
+if CORS_ORIGIN:
+    CORS(app, resources={r"/api/*": {"origins": CORS_ORIGIN.split(",")}}, supports_credentials=False)
 
 # Configuration
 ICECAST_URL = os.getenv("ICECAST_URL", "http://icecast:8000")
@@ -167,7 +168,15 @@ def api_auth_config():
 
 @app.route("/api/alert", methods=["POST", "GET"])
 def api_alert():
-    """Receive alerts from the analytics service or Liquidsoap (internal only)."""
+    """Receive alerts from the analytics service or Liquidsoap (internal only).
+    Only accepts requests from Docker internal network (non-routable IPs)."""
+    remote_ip = request.remote_addr or ""
+    # Allow Docker bridge network (172.x), localhost, and private ranges
+    if not (remote_ip.startswith("172.") or remote_ip.startswith("10.") or
+            remote_ip.startswith("192.168.") or remote_ip in ("127.0.0.1", "::1")):
+        return Response(json.dumps({"error": "Forbidden"}), 403,
+                        {"Content-Type": "application/json"})
+
     alert_type = request.args.get("type", "unknown")
     message = request.args.get("message", "")
 
@@ -302,7 +311,7 @@ def api_emergency_audio_delete():
     data = request.get_json() or {}
     filename = data.get("filename", "")
 
-    if not filename or "/" in filename or "\\" in filename:
+    if not filename or "/" in filename or "\\" in filename or ".." in filename:
         return jsonify({"error": "Invalid filename"}), 400
 
     ext = os.path.splitext(filename)[1].lower()

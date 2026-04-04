@@ -97,7 +97,7 @@ services:
       - APPWRITE_TEAM_ID=${APPWRITE_TEAM_ID}
       - POSTHOG_API_KEY=${POSTHOG_API_KEY}
       - PUSHOVER_USER_KEY=${PUSHOVER_USER_KEY}
-      - STATUS_PANEL_CORS_ORIGIN=${STATUS_PANEL_CORS_ORIGIN:-*}
+      - STATUS_PANEL_CORS_ORIGIN=${STATUS_PANEL_CORS_ORIGIN}
       - EMERGENCY_AUDIO_DIR=/emergency-audio
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
