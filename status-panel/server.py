@@ -19,9 +19,10 @@ import shutil
 import requests
 from flask import Flask, jsonify, request, Response, g
 from flask_cors import CORS
+from werkzeug.exceptions import RequestEntityTooLarge
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB upload limit
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * 1024  # 1 GiB upload limit
 
 # CORS — allow the current and legacy Breeze Radio panel origins.
 DEFAULT_CORS_ORIGINS = {
@@ -223,6 +224,14 @@ def require_operator(f):
     return decorated
 
 
+@app.errorhandler(RequestEntityTooLarge)
+def handle_request_too_large(_error):
+    return jsonify({
+        "error": "File too large",
+        "max_bytes": app.config["MAX_CONTENT_LENGTH"],
+    }), 413
+
+
 # ============================================================
 # Icecast stats
 # ============================================================
@@ -382,7 +391,7 @@ def api_containers():
 
 EMERGENCY_AUDIO_DIR = os.getenv("EMERGENCY_AUDIO_DIR", "/emergency-audio")
 ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".ogg"}
-MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
+MAX_UPLOAD_SIZE = 1024 * 1024 * 1024  # 1 GiB
 
 # Magic bytes for audio file validation
 AUDIO_MAGIC = {
