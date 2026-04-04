@@ -94,6 +94,18 @@ Download and install [Docker Desktop](https://www.docker.com/products/docker-des
 
 ## Quick Start
 
+### One-line install
+
+```bash
+git clone https://github.com/rikvisser-dev/audiostreaming-stack.git
+cd audiostreaming-stack
+./install.sh
+```
+
+The installer walks you through Docker checks, configuration, SSL setup, and launching the stack interactively.
+
+### Manual setup
+
 1. **Clone and configure**
    ```bash
    git clone https://github.com/rikvisser-dev/audiostreaming-stack.git
@@ -161,6 +173,7 @@ The analytics sidecar sends the following events to PostHog:
 ```
 ├── docker-compose.yml
 ├── .env.example
+├── install.sh
 ├── init-letsencrypt.sh
 ├── icecast/
 │   ├── Dockerfile
