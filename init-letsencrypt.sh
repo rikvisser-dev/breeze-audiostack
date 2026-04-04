@@ -19,6 +19,16 @@ if [ -z "$ICECAST_HOSTNAME" ]; then
     exit 1
 fi
 
+# Check if cert already exists
+if [ -f "certbot/conf/live/$ICECAST_HOSTNAME/fullchain.pem" ]; then
+    echo "Certificate already exists for $ICECAST_HOSTNAME"
+    read -rp "Renew/replace it? (y/N): " renew
+    if [[ ! "$renew" =~ ^[Yy]$ ]]; then
+        echo "Keeping existing certificate."
+        exit 0
+    fi
+fi
+
 EMAIL="${LETSENCRYPT_EMAIL:-}"
 STAGING="${LETSENCRYPT_STAGING:-0}"
 
@@ -40,19 +50,14 @@ echo "Requesting certificate for: $ICECAST_HOSTNAME"
 # Create required directories
 mkdir -p certbot/conf certbot/www
 
-# Start nginx with a temporary self-signed cert for the ACME challenge
-echo "Creating temporary self-signed certificate..."
-mkdir -p "certbot/conf/live/$ICECAST_HOSTNAME"
-openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
-    -keyout "certbot/conf/live/$ICECAST_HOSTNAME/privkey.pem" \
-    -out "certbot/conf/live/$ICECAST_HOSTNAME/fullchain.pem" \
-    -subj "/CN=localhost" 2>/dev/null
-
-echo "Starting nginx for ACME challenge..."
+# Nginx entrypoint auto-detects missing certs and runs HTTP-only mode.
+# No self-signed cert needed.
+echo "Starting nginx (HTTP-only mode for ACME challenge)..."
 docker compose up -d --no-deps nginx
 
-echo "Removing temporary certificate..."
-rm -rf "certbot/conf/live/$ICECAST_HOSTNAME"
+# Wait for nginx to be ready
+echo "Waiting for nginx..."
+sleep 3
 
 echo "Requesting Let's Encrypt certificate..."
 docker compose run --rm certbot certonly \
@@ -64,8 +69,10 @@ docker compose run --rm certbot certonly \
     --no-eff-email \
     -d "$ICECAST_HOSTNAME"
 
-echo "Reloading nginx with real certificate..."
-docker compose exec nginx nginx -s reload
+# Restart nginx so it picks up the real cert and enables HTTPS
+echo "Restarting nginx with SSL enabled..."
+docker compose restart nginx
 
+echo ""
 echo "Done! Certificate obtained for $ICECAST_HOSTNAME"
 echo "Start the full stack with: docker compose up -d"

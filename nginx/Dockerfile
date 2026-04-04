@@ -1,8 +1,6 @@
 FROM nginx:alpine
 
-COPY nginx.conf /etc/nginx/templates/nginx.conf.template
+COPY nginx.conf /etc/nginx/nginx.conf.template
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 
-# nginx:alpine auto-runs envsubst on /etc/nginx/templates/*.template
-# and outputs to /etc/nginx/conf.d/. We override that to write to the
-# main config path instead.
-CMD ["sh", "-c", "envsubst '${ICECAST_HOSTNAME}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf && exec nginx -g 'daemon off;'"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
