@@ -33,10 +33,17 @@ secondary = input.harbor(
 )
 
 # --- Emergency fallback ---
-emergency = single("/emergency-audio/fallback.mp3")
+# Use emergency file if available, otherwise output silence
+emergency =
+  if file.exists("/emergency-audio/fallback.mp3") then
+    single("/emergency-audio/fallback.mp3")
+  else
+    log("No emergency audio file found, using silence as last resort")
+    blank()
+  end
 
 # --- Fallback chain ---
-# Priority: primary FLAC > secondary Ogg > emergency file
+# Priority: primary FLAC > secondary Ogg > emergency file/silence
 radio = fallback(
   track_sensitive=false,
   [primary, secondary, emergency]
