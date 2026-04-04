@@ -17,7 +17,7 @@ services:
       - streaming
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/status-json.xsl"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/status-json.xsl"]
       interval: 15s
       timeout: 5s
       retries: 3

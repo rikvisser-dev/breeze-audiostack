@@ -3,7 +3,8 @@ FROM debian:bookworm-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         icecast2 \
-        gettext-base && \
+        gettext-base \
+        curl && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /var/log/icecast2 && \
     chown -R icecast2:icecast /var/log/icecast2

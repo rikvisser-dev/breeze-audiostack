@@ -49,7 +49,7 @@ openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
     -subj "/CN=localhost" 2>/dev/null
 
 echo "Starting nginx for ACME challenge..."
-docker compose up -d nginx
+docker compose up -d --no-deps nginx
 
 echo "Removing temporary certificate..."
 rm -rf "certbot/conf/live/$ICECAST_HOSTNAME"
