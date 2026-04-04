@@ -1,0 +1,15 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        icecast2 \
+        gettext-base && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /var/log/icecast2 && \
+    chown -R icecast2:icecast /var/log/icecast2
+
+COPY icecast.xml /etc/icecast2/icecast.xml.template
+
+EXPOSE 8000
+
+ENTRYPOINT ["sh", "-c", "envsubst < /etc/icecast2/icecast.xml.template > /etc/icecast2/icecast.xml && exec icecast2 -c /etc/icecast2/icecast.xml"]

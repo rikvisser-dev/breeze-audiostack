@@ -1,0 +1,81 @@
+services:
+  icecast:
+    build: ./icecast
+    container_name: breezeradio-icecast
+    environment:
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_RELAY_PASSWORD=${ICECAST_RELAY_PASSWORD}
+      - ICECAST_ADMIN_USER=${ICECAST_ADMIN_USER}
+      - ICECAST_ADMIN_PASSWORD=${ICECAST_ADMIN_PASSWORD}
+      - ICECAST_HOSTNAME=${ICECAST_HOSTNAME}
+      - ICECAST_MAX_LISTENERS=${ICECAST_MAX_LISTENERS}
+    volumes:
+      - icecast-logs:/var/log/icecast2
+    networks:
+      - streaming
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/status-json.xsl"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  liquidsoap:
+    build: ./liquidsoap
+    container_name: breezeradio-liquidsoap
+    depends_on:
+      icecast:
+        condition: service_healthy
+    environment:
+      - HARBOR_PASSWORD=${HARBOR_PASSWORD}
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+    ports:
+      - "${HARBOR_PRIMARY_PORT:-8010}:8010"    # Studio primary (FLAC)
+      - "${HARBOR_FALLBACK_PORT:-8011}:8011"   # Studio fallback (Ogg)
+    volumes:
+      - ./liquidsoap/radio.liq:/etc/liquidsoap/radio.liq:ro
+      - ./emergency-audio:/emergency-audio:ro
+      - hls-data:/hls
+    networks:
+      - streaming
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: breezeradio-nginx
+    depends_on:
+      - icecast
+      - liquidsoap
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - hls-data:/hls:ro
+    networks:
+      - streaming
+    restart: unless-stopped
+
+  analytics:
+    build: ./analytics
+    container_name: breezeradio-analytics
+    depends_on:
+      icecast:
+        condition: service_healthy
+    environment:
+      - ICECAST_URL=http://icecast:8000
+      - ICECAST_ADMIN_USER=${ICECAST_ADMIN_USER}
+      - ICECAST_ADMIN_PASSWORD=${ICECAST_ADMIN_PASSWORD}
+      - POSTHOG_API_KEY=${POSTHOG_API_KEY}
+      - POSTHOG_HOST=${POSTHOG_HOST}
+      - POSTHOG_POLL_INTERVAL=${POSTHOG_POLL_INTERVAL:-30}
+    networks:
+      - streaming
+    restart: unless-stopped
+
+volumes:
+  hls-data:
+  icecast-logs:
+
+networks:
+  streaming:
+    driver: bridge

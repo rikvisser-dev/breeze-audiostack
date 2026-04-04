@@ -1,0 +1,6 @@
+.env
+emergency-audio/*.mp3
+emergency-audio/*.flac
+emergency-audio/*.wav
+logs/
+hls-data/
