@@ -54,6 +54,7 @@ STATION_NAME = os.getenv("STATION_NAME", "Radio Station")
 APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT", "")
 APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID", "")
 APPWRITE_TEAM_ID = os.getenv("APPWRITE_TEAM_ID", "")
+ALLOW_RISKY_COMMANDS = os.getenv("STATUS_PANEL_ALLOW_RISKY_COMMANDS", "0") == "1"
 
 # Alert history (last 50 events, in-memory)
 alert_history = deque(maxlen=50)
@@ -374,27 +375,11 @@ def api_emergency_audio_delete():
 
 ALLOWED_SERVICES = {"icecast", "liquidsoap", "nginx", "analytics", "status-panel", "certbot"}
 
-SAFE_COMMANDS = {
-    "restart_service": {
-        "label": "Restart a service",
-        "build": lambda svc: ["docker", "restart", f"breezeradio-{svc}"],
-        "requires_service": True,
-    },
+READONLY_COMMANDS = {
     "logs": {
         "label": "View recent logs",
         "build": lambda svc: ["docker", "logs", "--tail", "80", f"breezeradio-{svc}"],
         "requires_service": True,
-    },
-    "restart_stack": {
-        "label": "Restart entire stack",
-        "build": lambda _: ["docker", "compose", "restart"],
-        "requires_service": False,
-    },
-    "renew_ssl": {
-        "label": "Renew SSL certificate",
-        "build": lambda _: ["docker", "compose", "run", "--rm", "--entrypoint", "",
-                            "certbot", "certbot", "renew"],
-        "requires_service": False,
     },
     "disk_usage": {
         "label": "Disk usage",
@@ -409,13 +394,39 @@ SAFE_COMMANDS = {
     },
 }
 
+RISKY_COMMANDS = {
+    "restart_service": {
+        "label": "Restart a service",
+        "build": lambda svc: ["docker", "restart", f"breezeradio-{svc}"],
+        "requires_service": True,
+    },
+    "restart_stack": {
+        "label": "Restart entire stack",
+        "build": lambda _: ["docker", "compose", "restart"],
+        "requires_service": False,
+    },
+    "renew_ssl": {
+        "label": "Renew SSL certificate",
+        "build": lambda _: ["docker", "compose", "run", "--rm", "--entrypoint", "",
+                            "certbot", "certbot", "renew"],
+        "requires_service": False,
+    },
+}
+
+
+def get_available_commands():
+    commands = dict(READONLY_COMMANDS)
+    if ALLOW_RISKY_COMMANDS:
+        commands.update(RISKY_COMMANDS)
+    return commands
+
 
 @app.route("/api/commands")
 @require_auth
 def api_commands_list():
     """List available safe commands."""
     cmds = []
-    for key, info in SAFE_COMMANDS.items():
+    for key, info in get_available_commands().items():
         cmds.append({
             "id": key,
             "label": info["label"],
@@ -435,10 +446,12 @@ def api_commands_run():
     command_id = data.get("command", "")
     service = data.get("service", "")
 
-    if command_id not in SAFE_COMMANDS:
+    commands = get_available_commands()
+
+    if command_id not in commands:
         return jsonify({"error": f"Unknown command: {command_id}"}), 400
 
-    cmd_info = SAFE_COMMANDS[command_id]
+    cmd_info = commands[command_id]
 
     if cmd_info["requires_service"]:
         if service not in ALLOWED_SERVICES:

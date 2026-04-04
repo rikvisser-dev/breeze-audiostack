@@ -245,6 +245,7 @@ if [ "${SKIP_ENV}" != "true" ]; then
     prompt APPWRITE_PROJECT_ID "Appwrite project ID" ""
     prompt APPWRITE_TEAM_ID    "Appwrite team ID (members get panel access)" ""
     prompt STATUS_PANEL_CORS_ORIGIN "Status panel frontend URL(s) for CORS" "https://broadcast-status.breezeradio.nl,https://status.breezeradio.nl"
+    prompt STATUS_PANEL_ALLOW_RISKY_COMMANDS "Allow destructive panel commands? (0/1)" "0"
 
     # PostHog
     echo ""
@@ -292,6 +293,7 @@ APPWRITE_ENDPOINT=${APPWRITE_ENDPOINT}
 APPWRITE_PROJECT_ID=${APPWRITE_PROJECT_ID}
 APPWRITE_TEAM_ID=${APPWRITE_TEAM_ID}
 STATUS_PANEL_CORS_ORIGIN=${STATUS_PANEL_CORS_ORIGIN}
+STATUS_PANEL_ALLOW_RISKY_COMMANDS=${STATUS_PANEL_ALLOW_RISKY_COMMANDS}
 
 # PostHog
 POSTHOG_API_KEY=${POSTHOG_API_KEY}
