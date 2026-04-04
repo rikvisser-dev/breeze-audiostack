@@ -21,6 +21,7 @@ from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB upload limit
 
 # CORS — allow the Appwrite Sites frontend (no wildcard default)
 CORS_ORIGIN = os.getenv("STATUS_PANEL_CORS_ORIGIN", "")
@@ -249,6 +250,15 @@ def api_containers():
 
 EMERGENCY_AUDIO_DIR = os.getenv("EMERGENCY_AUDIO_DIR", "/emergency-audio")
 ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".flac", ".wav", ".ogg"}
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
+
+# Magic bytes for audio file validation
+AUDIO_MAGIC = {
+    ".mp3": [b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"ID3"],
+    ".flac": [b"fLaC"],
+    ".wav": [b"RIFF"],
+    ".ogg": [b"OggS"],
+}
 
 
 @app.route("/api/emergency-audio")
@@ -282,6 +292,22 @@ def api_emergency_audio_upload():
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ALLOWED_AUDIO_EXTENSIONS:
         return jsonify({"error": f"Unsupported format. Allowed: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"}), 400
+
+    # Check file size
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > MAX_UPLOAD_SIZE:
+        return jsonify({"error": f"File too large. Max {MAX_UPLOAD_SIZE // (1024*1024)} MB"}), 400
+    if size < 1024:
+        return jsonify({"error": "File too small — doesn't look like valid audio"}), 400
+
+    # Validate magic bytes
+    header = file.read(4)
+    file.seek(0)
+    valid_magic = AUDIO_MAGIC.get(ext, [])
+    if not any(header.startswith(m) for m in valid_magic):
+        return jsonify({"error": "File content doesn't match audio format"}), 400
 
     # Save as fallback.<ext> (the name Liquidsoap expects)
     target = os.path.join(EMERGENCY_AUDIO_DIR, f"fallback{ext}")
@@ -324,6 +350,105 @@ def api_emergency_audio_delete():
 
     os.remove(filepath)
     return jsonify({"ok": True})
+
+
+# ============================================================
+# Safe remote commands (whitelisted only)
+# ============================================================
+
+ALLOWED_SERVICES = {"icecast", "liquidsoap", "nginx", "analytics", "status-panel", "certbot"}
+
+SAFE_COMMANDS = {
+    "restart_service": {
+        "label": "Restart a service",
+        "build": lambda svc: ["docker", "restart", f"breezeradio-{svc}"],
+        "requires_service": True,
+    },
+    "logs": {
+        "label": "View recent logs",
+        "build": lambda svc: ["docker", "logs", "--tail", "80", f"breezeradio-{svc}"],
+        "requires_service": True,
+    },
+    "restart_stack": {
+        "label": "Restart entire stack",
+        "build": lambda _: ["docker", "compose", "restart"],
+        "requires_service": False,
+    },
+    "renew_ssl": {
+        "label": "Renew SSL certificate",
+        "build": lambda _: ["docker", "compose", "run", "--rm", "--entrypoint", "",
+                            "certbot", "certbot", "renew"],
+        "requires_service": False,
+    },
+    "disk_usage": {
+        "label": "Disk usage",
+        "build": lambda _: ["docker", "system", "df"],
+        "requires_service": False,
+    },
+    "icecast_stats": {
+        "label": "Icecast raw stats",
+        "build": lambda _: ["curl", "-s", f"{ICECAST_URL}/status-json.xsl",
+                            "-u", f"{ICECAST_ADMIN_USER}:{ICECAST_ADMIN_PASSWORD}"],
+        "requires_service": False,
+    },
+}
+
+
+@app.route("/api/commands")
+@require_auth
+def api_commands_list():
+    """List available safe commands."""
+    cmds = []
+    for key, info in SAFE_COMMANDS.items():
+        cmds.append({
+            "id": key,
+            "label": info["label"],
+            "requires_service": info["requires_service"],
+        })
+    return jsonify({
+        "commands": cmds,
+        "services": sorted(ALLOWED_SERVICES),
+    })
+
+
+@app.route("/api/commands/run", methods=["POST"])
+@require_auth
+def api_commands_run():
+    """Execute a whitelisted command and return output."""
+    data = request.get_json() or {}
+    command_id = data.get("command", "")
+    service = data.get("service", "")
+
+    if command_id not in SAFE_COMMANDS:
+        return jsonify({"error": f"Unknown command: {command_id}"}), 400
+
+    cmd_info = SAFE_COMMANDS[command_id]
+
+    if cmd_info["requires_service"]:
+        if service not in ALLOWED_SERVICES:
+            return jsonify({"error": f"Invalid service: {service}"}), 400
+
+    try:
+        cmd = cmd_info["build"](service)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        output = result.stdout
+        if result.stderr:
+            output += ("\n" if output else "") + result.stderr
+
+        return jsonify({
+            "ok": result.returncode == 0,
+            "output": output.strip() or "(no output)",
+            "exit_code": result.returncode,
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Command timed out (30s)"}), 504
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ============================================================

@@ -10,6 +10,8 @@ import {
   type Alert,
   type Container,
   type EmergencyFile,
+  type CommandsConfig,
+  type CommandResult,
 } from "@/lib/api";
 import { Card } from "./card";
 import { StatusDot } from "./status-dot";
@@ -24,6 +26,9 @@ export function Dashboard() {
   const [containers, setContainers] = useState<Container[]>([]);
   const [emergencyFiles, setEmergencyFiles] = useState<EmergencyFile[]>([]);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [commandsConfig, setCommandsConfig] = useState<CommandsConfig | null>(null);
+  const [cmdRunning, setCmdRunning] = useState<string | null>(null);
+  const [cmdOutput, setCmdOutput] = useState<{ label: string; output: string; ok: boolean } | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
@@ -45,6 +50,7 @@ export function Dashboard() {
   useEffect(() => {
     if (!jwt) return;
     apiFetch<StackConfig>("/api/config", jwt).then(setConfig).catch(() => {});
+    apiFetch<CommandsConfig>("/api/commands", jwt).then(setCommandsConfig).catch(() => {});
   }, [jwt]);
 
   // Refresh loop
@@ -91,28 +97,28 @@ export function Dashboard() {
     refresh();
   }
 
-  function copyCmd(text: string, el: HTMLElement) {
-    navigator.clipboard.writeText(text);
-    el.classList.add("!text-amber-400");
-    setTimeout(() => el.classList.remove("!text-amber-400"), 600);
+  async function runCommand(commandId: string, label: string, service?: string) {
+    if (!jwt || cmdRunning) return;
+    const key = service ? `${commandId}:${service}` : commandId;
+    setCmdRunning(key);
+    setCmdOutput(null);
+    try {
+      const result = await apiPost<CommandResult>("/api/commands/run", jwt, {
+        command: commandId,
+        service: service || "",
+      });
+      setCmdOutput({
+        label: service ? `${label} — ${service}` : label,
+        output: result.output || result.error || "(no output)",
+        ok: result.ok ?? !result.error,
+      });
+    } catch {
+      setCmdOutput({ label, output: "Request failed", ok: false });
+    }
+    setCmdRunning(null);
   }
 
   const hostname = config?.hostname || "<host>";
-
-  const commands = [
-    ["View all logs", "docker compose logs -f"],
-    ["Liquidsoap logs", "docker compose logs -f liquidsoap"],
-    ["Icecast logs", "docker compose logs -f icecast"],
-    ["Restart all", "docker compose restart"],
-    ["Restart Liquidsoap", "docker compose restart liquidsoap"],
-    ["Stop everything", "docker compose down"],
-    ["Rebuild & restart", "docker compose up -d --build"],
-    ["Renew SSL", "docker compose run --rm certbot renew"],
-    ["Test stream (VLC)", `vlc https://${hostname}/listen/stream-mp3-128`],
-    ["Container status", "docker ps --filter name=breezeradio-"],
-    ["Icecast stats", "curl http://localhost:8000/status-json.xsl"],
-    ["Disk usage", "docker system df"],
-  ];
 
   return (
     <>
@@ -405,25 +411,92 @@ export function Dashboard() {
         </Card>
 
         {/* Commands */}
-        <Card title="Useful Commands" fullWidth>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {commands.map(([label, cmd]) => (
-              <div
-                key={label}
-                className="bg-[#0f1117] border border-[#2a2e3d] rounded-lg p-3"
-              >
-                <div className="text-[#8b90a0] text-[0.7rem] mb-1">
-                  {label}
-                </div>
-                <div
-                  className="font-mono text-xs text-emerald-400 cursor-pointer hover:underline transition-colors"
-                  onClick={(e) => copyCmd(cmd, e.currentTarget)}
-                >
-                  {cmd}
-                </div>
+        <Card title="Commands" fullWidth>
+          {commandsConfig ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+                {commandsConfig.commands.filter(c => !c.requires_service).map((cmd) => (
+                  <button
+                    key={cmd.id}
+                    onClick={() => runCommand(cmd.id, cmd.label)}
+                    disabled={cmdRunning !== null}
+                    className={`bg-[#0f1117] border border-[#2a2e3d] rounded-lg p-3 text-left hover:border-[#4f8ff7] transition-colors disabled:opacity-50 ${
+                      cmdRunning === cmd.id ? "border-amber-400" : ""
+                    }`}
+                  >
+                    <div className="text-sm text-[#e1e4ed]">{cmd.label}</div>
+                    {cmdRunning === cmd.id && (
+                      <div className="text-xs text-amber-400 mt-1">Running...</div>
+                    )}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+
+              {/* Per-service commands */}
+              <div className="text-[0.7rem] uppercase tracking-wider text-[#8b90a0] mb-2">
+                Service Commands
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-[0.7rem] uppercase tracking-wider text-[#8b90a0]">
+                      <th className="px-3 py-2 border-b border-[#2a2e3d]">Service</th>
+                      {commandsConfig.commands.filter(c => c.requires_service).map(cmd => (
+                        <th key={cmd.id} className="px-3 py-2 border-b border-[#2a2e3d]">{cmd.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commandsConfig.services.map(svc => (
+                      <tr key={svc} className="border-b border-[#2a2e3d] last:border-0">
+                        <td className="px-3 py-2 font-mono text-xs">{svc}</td>
+                        {commandsConfig.commands.filter(c => c.requires_service).map(cmd => (
+                          <td key={cmd.id} className="px-3 py-2">
+                            <button
+                              onClick={() => runCommand(cmd.id, cmd.label, svc)}
+                              disabled={cmdRunning !== null}
+                              className={`px-2 py-1 text-xs border rounded transition-colors ${
+                                cmdRunning === `${cmd.id}:${svc}`
+                                  ? "border-amber-400 text-amber-400"
+                                  : "border-[#2a2e3d] text-[#8b90a0] hover:text-[#e1e4ed] hover:border-[#4f8ff7]"
+                              } disabled:opacity-50`}
+                            >
+                              {cmdRunning === `${cmd.id}:${svc}` ? "Running..." : "Run"}
+                            </button>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-[#8b90a0]">Loading...</p>
+          )}
+
+          {/* Command output */}
+          {cmdOutput && (
+            <div className="mt-4 bg-[#0f1117] border border-[#2a2e3d] rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-[#2a2e3d]">
+                <span className="text-xs font-semibold">
+                  <span className={cmdOutput.ok ? "text-emerald-400" : "text-red-400"}>
+                    {cmdOutput.ok ? "✓" : "✗"}
+                  </span>
+                  {" "}{cmdOutput.label}
+                </span>
+                <button
+                  onClick={() => setCmdOutput(null)}
+                  className="text-[#8b90a0] text-xs hover:text-[#e1e4ed]"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <pre className="p-3 text-xs text-[#c4c8d8] overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap">
+                {cmdOutput.output}
+              </pre>
+            </div>
+          )}
         </Card>
       </div>
     </>

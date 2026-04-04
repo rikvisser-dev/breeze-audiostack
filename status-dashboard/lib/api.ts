@@ -91,3 +91,21 @@ export interface EmergencyFile {
   size_mb: number;
   modified: number;
 }
+
+export interface CommandDef {
+  id: string;
+  label: string;
+  requires_service: boolean;
+}
+
+export interface CommandsConfig {
+  commands: CommandDef[];
+  services: string[];
+}
+
+export interface CommandResult {
+  ok?: boolean;
+  output?: string;
+  exit_code?: number;
+  error?: string;
+}
