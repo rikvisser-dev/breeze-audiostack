@@ -182,12 +182,16 @@ def handle_harbor_state(harbor_name, is_up):
 
     if harbor_name == "primary":
         priority = 1
+        message = "The primary studio input is offline. Check the FLAC encoder and the studio connection."
+        if harbor_states.get("secondary", True) is False:
+            message += " The secondary harbor is also down, so the stream is in critical failover."
     else:
         priority = 2 if harbor_states.get("primary", True) is False else 1
-    message = (
-        f"The {harbor_name} studio input is offline. "
-        f"{('Both harbors are down, so the stream is in critical failover.' if priority == 2 else 'Failover should still be carrying the stream.') }"
-    )
+        message = "The secondary studio input is offline. "
+        if priority == 2:
+            message += "Both harbors are down, so the stream is in critical failover."
+        else:
+            message += "Failover should still be carrying the stream."
     send_pushover(
         f"{STATION_NAME} — {harbor_name.title()} Harbor Down",
         message,

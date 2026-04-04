@@ -271,7 +271,9 @@ Liquidsoap monitors the audio stream for silence and triggers Pushover notificat
 |---|---|---|
 | Silence detected | High (siren) | Audio below -40 dB for 15 seconds |
 | Audio resumed | Low | Audio returns after silence |
-| Source disconnected | Normal | An Icecast mount goes offline |
+| Stream outage | High (siren) | One combined alert when one or more Icecast outputs disconnect |
+| Primary harbor down | High (siren) | Primary studio input disconnects |
+| Secondary harbor down | High / Critical | Secondary studio input disconnects; escalates to critical when primary is already down |
 
 Alerts have a 5-minute cooldown to prevent spam. Configure thresholds via `SILENCE_THRESHOLD_DB` and `SILENCE_DURATION` in `.env`.
 
