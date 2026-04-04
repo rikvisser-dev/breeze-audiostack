@@ -70,6 +70,8 @@ export interface StackConfig {
   max_listeners: string;
   posthog_enabled: boolean;
   pushover_enabled: boolean;
+  can_manage_emergency_audio: boolean;
+  can_run_risky_commands: boolean;
 }
 
 export interface Alert {

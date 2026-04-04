@@ -217,6 +217,7 @@ All secrets and settings are managed via `.env`:
 | `APPWRITE_PROJECT_ID` | Appwrite project ID |
 | `APPWRITE_TEAM_ID` | Appwrite team ID (only members get panel access) |
 | `STATUS_PANEL_CORS_ORIGIN` | Frontend URL(s) for CORS, comma-separated (e.g. `https://broadcast-status.breezeradio.nl,https://status.breezeradio.nl`) |
+| `STATUS_PANEL_WRITE_ROLES` | Appwrite team roles allowed to manage emergency audio (default: `owner,admin`) |
 | `STATUS_PANEL_ALLOW_RISKY_COMMANDS` | Enable destructive remote commands like restart/renew SSL (`0` by default) |
 | `POSTHOG_API_KEY` | PostHog project API key |
 | `POSTHOG_HOST` | PostHog instance URL |

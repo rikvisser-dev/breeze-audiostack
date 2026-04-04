@@ -17,7 +17,7 @@ import glob as globmod
 import shutil
 
 import requests
-from flask import Flask, jsonify, request, Response
+from flask import Flask, jsonify, request, Response, g
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -54,16 +54,43 @@ STATION_NAME = os.getenv("STATION_NAME", "Radio Station")
 APPWRITE_ENDPOINT = os.getenv("APPWRITE_ENDPOINT", "")
 APPWRITE_PROJECT_ID = os.getenv("APPWRITE_PROJECT_ID", "")
 APPWRITE_TEAM_ID = os.getenv("APPWRITE_TEAM_ID", "")
+WRITE_ROLES = {
+    role.strip()
+    for role in os.getenv("STATUS_PANEL_WRITE_ROLES", "owner,admin").split(",")
+    if role.strip()
+}
+if not WRITE_ROLES:
+    WRITE_ROLES = {"owner", "admin"}
 ALLOW_RISKY_COMMANDS = os.getenv("STATUS_PANEL_ALLOW_RISKY_COMMANDS", "0") == "1"
 
 # Alert history (last 50 events, in-memory)
 alert_history = deque(maxlen=50)
 
 
-def verify_appwrite_session(jwt):
-    """Verify an Appwrite JWT and check team membership."""
+def get_bearer_jwt():
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    return None
+
+
+def extract_list_items(payload):
+    if isinstance(payload, list):
+        return payload
+
+    if isinstance(payload, dict):
+        for key in ("memberships", "documents", "users", "teams", "data", "items"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+
+    return []
+
+
+def get_appwrite_context(jwt):
+    """Verify an Appwrite JWT and collect team roles for the current user."""
     if not APPWRITE_ENDPOINT or not APPWRITE_PROJECT_ID:
-        return False
+        return None
 
     headers = {
         "X-Appwrite-Project": APPWRITE_PROJECT_ID,
@@ -78,7 +105,12 @@ def verify_appwrite_session(jwt):
             timeout=5,
         )
         if resp.status_code != 200:
-            return False
+            return None
+
+        account_data = resp.json()
+        user_id = account_data.get("$id") or account_data.get("id")
+        if not user_id:
+            return None
 
         # If a team ID is configured, verify membership
         if APPWRITE_TEAM_ID:
@@ -88,26 +120,104 @@ def verify_appwrite_session(jwt):
                 timeout=5,
             )
             if teams_resp.status_code != 200:
-                return False
+                return None
 
-        return True
+            memberships = extract_list_items(teams_resp.json())
+            roles = set()
+            for membership in memberships:
+                if not isinstance(membership, dict):
+                    continue
+                if membership.get("userId") != user_id:
+                    continue
+
+                membership_roles = membership.get("roles") or []
+                if isinstance(membership_roles, list):
+                    roles.update(str(role) for role in membership_roles if role)
+                break
+
+            if not roles:
+                return None
+
+        else:
+            roles = set()
+
+        return {
+            "user_id": user_id,
+            "roles": roles,
+        }
     except Exception:
+        return None
+
+
+def verify_appwrite_session(jwt):
+    return get_appwrite_context(jwt) is not None
+
+
+def get_request_appwrite_context():
+    context = getattr(g, "appwrite_context", None)
+    if context is not None:
+        return context
+
+    jwt = get_bearer_jwt()
+    if not jwt:
+        return None
+
+    context = get_appwrite_context(jwt)
+    g.appwrite_context = context
+    return context
+
+
+def has_operator_access(context):
+    if not context or not APPWRITE_TEAM_ID:
         return False
+
+    return bool(context.get("roles", set()) & WRITE_ROLES)
 
 
 def require_auth(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        # Check for Appwrite JWT in Authorization header
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            jwt = auth_header[7:]
-            if verify_appwrite_session(jwt):
+        jwt = get_bearer_jwt()
+        if jwt:
+            context = get_appwrite_context(jwt)
+            if context is not None:
+                g.appwrite_context = context
                 return f(*args, **kwargs)
 
         return Response(
             json.dumps({"error": "Authentication required"}),
             401,
+            {"Content-Type": "application/json"},
+        )
+    return decorated
+
+
+def require_operator(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        jwt = get_bearer_jwt()
+        if not jwt:
+            return Response(
+                json.dumps({"error": "Authentication required"}),
+                401,
+                {"Content-Type": "application/json"},
+            )
+
+        context = get_appwrite_context(jwt)
+        if context is not None and has_operator_access(context):
+            g.appwrite_context = context
+            return f(*args, **kwargs)
+
+        if context is None:
+            return Response(
+                json.dumps({"error": "Authentication required"}),
+                401,
+                {"Content-Type": "application/json"},
+            )
+
+        return Response(
+            json.dumps({"error": "Operator access required"}),
+            403,
             {"Content-Type": "application/json"},
         )
     return decorated
@@ -222,6 +332,9 @@ def api_status():
 @require_auth
 def api_config():
     """Return current stack configuration (non-sensitive)."""
+    context = get_request_appwrite_context()
+    can_manage_emergency_audio = has_operator_access(context)
+    can_run_risky_commands = can_manage_emergency_audio and ALLOW_RISKY_COMMANDS
     return jsonify({
         "station_name": STATION_NAME,
         "icecast_url": ICECAST_URL,
@@ -233,6 +346,8 @@ def api_config():
         "max_listeners": os.getenv("ICECAST_MAX_LISTENERS", "500"),
         "posthog_enabled": bool(os.getenv("POSTHOG_API_KEY")),
         "pushover_enabled": bool(os.getenv("PUSHOVER_USER_KEY")),
+        "can_manage_emergency_audio": can_manage_emergency_audio,
+        "can_run_risky_commands": can_run_risky_commands,
     })
 
 
@@ -296,7 +411,7 @@ def api_emergency_audio_list():
 
 
 @app.route("/api/emergency-audio/upload", methods=["POST"])
-@require_auth
+@require_operator
 def api_emergency_audio_upload():
     """Upload or replace an emergency audio file."""
     if "file" not in request.files:
@@ -348,7 +463,7 @@ def api_emergency_audio_upload():
 
 
 @app.route("/api/emergency-audio/delete", methods=["POST"])
-@require_auth
+@require_operator
 def api_emergency_audio_delete():
     """Delete an emergency audio file."""
     data = request.get_json() or {}
@@ -452,6 +567,9 @@ def api_commands_run():
         return jsonify({"error": f"Unknown command: {command_id}"}), 400
 
     cmd_info = commands[command_id]
+
+    if command_id in RISKY_COMMANDS and not has_operator_access(get_request_appwrite_context()):
+        return jsonify({"error": "Operator access required"}), 403
 
     if cmd_info["requires_service"]:
         if service not in ALLOWED_SERVICES:

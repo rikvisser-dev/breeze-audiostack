@@ -119,6 +119,7 @@ export function Dashboard() {
   }
 
   const hostname = config?.hostname || "<host>";
+  const canManageEmergencyAudio = config?.can_manage_emergency_audio ?? false;
 
   return (
     <>
@@ -204,43 +205,53 @@ export function Dashboard() {
                       {f.size_mb} MB
                     </span>
                   </div>
-                  <button
-                    onClick={() => handleDelete(f.filename)}
-                    className="px-2 py-1 text-xs border border-red-400/50 text-red-400 rounded hover:bg-red-400/10"
-                  >
-                    Remove
-                  </button>
+                  {canManageEmergencyAudio ? (
+                    <button
+                      onClick={() => handleDelete(f.filename)}
+                      className="px-2 py-1 text-xs border border-red-400/50 text-red-400 rounded hover:bg-red-400/10"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
                 </div>
               ))
             )}
           </div>
-          <div className="border-2 border-dashed border-[#2a2e3d] rounded-lg p-4 text-center">
-            <p className="text-[#8b90a0] text-xs mb-2">
-              Upload fallback audio (.mp3, .flac, .wav, .ogg)
-            </p>
-            <label className="px-3 py-1.5 bg-[#22263a] border border-[#2a2e3d] rounded-md text-[#8b90a0] text-xs cursor-pointer hover:text-[#e1e4ed]">
-              Choose File
-              <input
-                type="file"
-                accept=".mp3,.flac,.wav,.ogg"
-                onChange={handleUpload}
-                className="hidden"
-              />
-            </label>
-            {uploadStatus && (
-              <p
-                className={`text-xs mt-2 ${
-                  uploadStatus.includes("success")
-                    ? "text-emerald-400"
-                    : uploadStatus.includes("fail")
-                    ? "text-red-400"
-                    : "text-[#4f8ff7]"
-                }`}
-              >
-                {uploadStatus}
+          {canManageEmergencyAudio ? (
+            <div className="border-2 border-dashed border-[#2a2e3d] rounded-lg p-4 text-center">
+              <p className="text-[#8b90a0] text-xs mb-2">
+                Upload fallback audio (.mp3, .flac, .wav, .ogg)
               </p>
-            )}
-          </div>
+              <label className="px-3 py-1.5 bg-[#22263a] border border-[#2a2e3d] rounded-md text-[#8b90a0] text-xs cursor-pointer hover:text-[#e1e4ed]">
+                Choose File
+                <input
+                  type="file"
+                  accept=".mp3,.flac,.wav,.ogg"
+                  onChange={handleUpload}
+                  className="hidden"
+                />
+              </label>
+              {uploadStatus && (
+                <p
+                  className={`text-xs mt-2 ${
+                    uploadStatus.includes("success")
+                      ? "text-emerald-400"
+                      : uploadStatus.includes("fail")
+                      ? "text-red-400"
+                      : "text-[#4f8ff7]"
+                  }`}
+                >
+                  {uploadStatus}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-[#2a2e3d] rounded-lg p-4 text-center">
+              <p className="text-[#8b90a0] text-xs">
+                Emergency audio management is restricted to operators.
+              </p>
+            </div>
+          )}
         </Card>
 
         {/* Mount points */}
