@@ -30,11 +30,6 @@ jobs:
               return login.endsWith('[bot]') || /^copilot[-_\s]/i.test(login);
             }
 
-            if (isAutomationActor(context.actor)) {
-              core.info(`Triggered by automation actor (${context.actor}) – skipping to prevent loop.`);
-              return;
-            }
-
             // ── Helper: parse closing-keyword issue references from PR body ─────────
             // Matches: closes/close/closed, fixes/fix/fixed, resolves/resolve/resolved
             // followed by an optional "owner/repo#" or bare "#" and an issue number.
@@ -119,6 +114,14 @@ jobs:
             if (context.payload.pull_request) {
               const pr = context.payload.pull_request;
               core.info(`Processing PR #${pr.number} (${context.payload.action})`);
+
+              // Loop protection is only needed for PR-triggered paths in this workflow.
+              // We intentionally still process issue labeled/unlabeled events from bots,
+              // so labels set by automation can be mirrored issue -> connected PRs.
+              if (isAutomationActor(context.actor)) {
+                core.info(`PR event triggered by automation actor (${context.actor}) – skipping to prevent loop.`);
+                return;
+              }
 
               const linkedIssueNumbers = parseLinkedIssueNumbers(pr.body);
               core.info(
