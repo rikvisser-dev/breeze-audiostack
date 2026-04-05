@@ -95,14 +95,14 @@ Adaptive bitrate with 3 AAC quality tiers — players automatically select the b
 
 Choose your setup based on your needs:
 
-### 🚀 Recommended: Deploy with GHCR images (minimal)
+### 🚀 Recommended: Minimal GHCR deployment (default)
 
 Fastest option for production deployments — no building or local dependencies required:
 
 ```bash
 git clone https://github.com/sonicverse-eu/audiostreaming-stack.git
 cd audiostreaming-stack
-./install.sh --use-prebuilt
+./install.sh
 ```
 
 This installs **only what's needed to run**:
@@ -132,17 +132,21 @@ This includes everything above **plus**:
 
 **Time:** ~5–10 minutes depending on your network and system
 
-### 🔨 Local build without dev setup
+### 🔨 Build containers locally (advanced)
 
-Build containers locally but don't install development dependencies:
+Build container images locally instead of pulling from GHCR — use this if you need to modify Dockerfile or container code:
 
 ```bash
 git clone https://github.com/sonicverse-eu/audiostreaming-stack.git
 cd audiostreaming-stack
-./install.sh
+./install.sh --build-local
 ```
 
-Use this if you want to modify container code (Dockerfile, liquidsoap config, etc.) without modifying the dashboard/API application code.
+Or for both local build and development dependencies:
+
+```bash
+./install.sh --build-local --dev
+```
 
 **Time:** ~15–30 minutes (building ~3 container images locally)
 
