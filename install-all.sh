@@ -131,6 +131,39 @@ install_node_deps() {
 install_python_deps() {
     local python_bin
     local pip_args=("-m" "pip" "install")
+    local requirements=(
+        "$ROOT_DIR/services/analytics/requirements.txt"
+        "$ROOT_DIR/apps/status-api/requirements.txt"
+    )
+
+    run_pip_install() {
+        local requirements_file
+        local output
+
+        for requirements_file in "${requirements[@]}"; do
+            if [[ "$#" -gt 0 ]]; then
+                if ! output="$("$python_bin" "${pip_args[@]}" "$@" -r "$requirements_file" 2>&1)"; then
+                    echo "$output" >&2
+                    if [[ "$output" == *"externally-managed-environment"* ]]; then
+                        return 42
+                    fi
+                    return 1
+                fi
+            elif ! output="$("$python_bin" "${pip_args[@]}" -r "$requirements_file" 2>&1)"; then
+                echo "$output" >&2
+                if [[ "$output" == *"externally-managed-environment"* ]]; then
+                    return 42
+                fi
+                return 1
+            fi
+
+            if [[ -n "$output" ]]; then
+                echo "$output"
+            fi
+        done
+
+        return 0
+    }
 
     python_bin="$(detect_python)"
     if [[ -z "$python_bin" ]]; then
@@ -143,8 +176,22 @@ install_python_deps() {
     fi
 
     echo "[python] Installing dependencies with $python_bin"
-    "$python_bin" "${pip_args[@]}" -r "$ROOT_DIR/services/analytics/requirements.txt"
-    "$python_bin" "${pip_args[@]}" -r "$ROOT_DIR/apps/status-api/requirements.txt"
+
+    local pip_status=0
+    run_pip_install || pip_status=$?
+
+    if [[ "$pip_status" -eq 0 ]]; then
+        return
+    fi
+
+    if [[ "$pip_status" -eq 42 && "$PIP_USER" -eq 0 ]]; then
+        echo "[python] Detected externally managed Python environment (PEP 668)."
+        echo "[python] Retrying with --user --break-system-packages for local development installs."
+        run_pip_install --user --break-system-packages
+        return
+    fi
+
+    exit 1
 }
 
 if [[ "$SKIP_NODE" -eq 1 && "$SKIP_PYTHON" -eq 1 ]]; then
