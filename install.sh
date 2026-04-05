@@ -395,9 +395,9 @@ else
 fi
 
 # ----------------------------------------------------------
-# Step $((4-STEP_OFFSET)): Emergency fallback audio
+# Step $((3+STEP_OFFSET)): Emergency fallback audio
 # ----------------------------------------------------------
-STEP_NUM=$((4 - STEP_OFFSET))
+STEP_NUM=$((3 + STEP_OFFSET))
 step $STEP_NUM "Emergency fallback audio"
 
 if ls emergency-audio/*.mp3 emergency-audio/*.flac emergency-audio/*.wav 2>/dev/null | head -1 &>/dev/null; then
@@ -415,9 +415,9 @@ else
 fi
 
 # ----------------------------------------------------------
-# Step $((5-STEP_OFFSET)): Build containers
+# Step $((4+STEP_OFFSET)): Build containers
 # ----------------------------------------------------------
-STEP_NUM=$((5 - STEP_OFFSET))
+STEP_NUM=$((4 + STEP_OFFSET))
 step $STEP_NUM "Building containers"
 
 if [ "$USE_PREBUILT" = "true" ]; then
@@ -435,9 +435,9 @@ else
 fi
 
 # ----------------------------------------------------------
-# Step $((6-STEP_OFFSET)): SSL certificate
+# Step $((5+STEP_OFFSET)): SSL certificate
 # ----------------------------------------------------------
-STEP_NUM=$((6 - STEP_OFFSET))
+STEP_NUM=$((5 + STEP_OFFSET))
 step $STEP_NUM "SSL certificate"
 
 # Source .env for hostname
@@ -475,9 +475,9 @@ else
 fi
 
 # ----------------------------------------------------------
-# Step $((7-STEP_OFFSET)): Launch
+# Step $((6+STEP_OFFSET)): Launch
 # ----------------------------------------------------------
-STEP_NUM=$((7 - STEP_OFFSET))
+STEP_NUM=$((6 + STEP_OFFSET))
 step $STEP_NUM "Launch"
 
 echo ""
