@@ -53,10 +53,12 @@ Studio (BUTT/etc)
 
 ## Repository Structure
 
+- `.github/` contains repository automation and project metadata, including issue templates and GitHub Actions workflows.
+- `.vscode/` contains editor settings and recommended workspace configuration for contributors using VS Code.
 - `apps/` contains operator-facing applications: the Next.js dashboard in `apps/dashboard/` and the Flask status API in `apps/status-api/`.
 - `services/` contains deployable runtime services, grouped by domain: streaming services in `services/streaming/` and telemetry in `services/analytics/`.
 - `infrastructure/` contains edge and routing infrastructure definitions, currently the Nginx reverse proxy in `infrastructure/nginx/`.
-- `emergency-audio/` stores local fallback media used when both studio streams are unavailable.
+- `emergency-audio/` stores local fallback media used when both studio streams are unavailable (operator-created during setup).
 
 ## Stream Inputs (Studio → Liquidsoap)
 
