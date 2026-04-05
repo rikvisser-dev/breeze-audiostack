@@ -58,7 +58,7 @@ function Get-PythonCommand {
 }
 
 function Install-NodeDeps {
-    $statusDashboard = Join-Path $RootDir "status-dashboard"
+    $statusDashboard = Join-Path $RootDir "apps/dashboard"
     $manager = "npm"
 
     if (Test-Path (Join-Path $statusDashboard "pnpm-lock.yaml")) {
@@ -67,7 +67,7 @@ function Install-NodeDeps {
         $manager = "yarn"
     }
 
-    Write-Host "[node] Installing status-dashboard dependencies with $manager"
+    Write-Host "[node] Installing dashboard dependencies with $manager"
 
     Push-Location $statusDashboard
     try {
@@ -105,8 +105,8 @@ function Install-NodeDeps {
 function Install-PythonDeps {
     $pythonCmd = Get-PythonCommand
     $requirements = @(
-        (Join-Path $RootDir "analytics/requirements.txt"),
-        (Join-Path $RootDir "status-panel/requirements.txt")
+        (Join-Path $RootDir "services/analytics/requirements.txt"),
+        (Join-Path $RootDir "apps/status-api/requirements.txt")
     )
 
     Write-Host "[python] Installing dependencies with $($pythonCmd.Exe)"

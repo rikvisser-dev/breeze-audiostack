@@ -39,15 +39,15 @@ jobs:
             affects_all:
               - 'docker-compose.yml'
             icecast:
-              - 'icecast/**'
+              - 'services/streaming/icecast/**'
             liquidsoap:
-              - 'liquidsoap/**'
+              - 'services/streaming/liquidsoap/**'
             nginx:
-              - 'nginx/**'
+              - 'infrastructure/nginx/**'
             status_panel:
-              - 'status-panel/**'
+              - 'apps/status-api/**'
             analytics:
-              - 'analytics/**'
+              - 'services/analytics/**'
 
       - name: Compute docs-only change flag
         id: docs_only
@@ -96,19 +96,19 @@ jobs:
       matrix:
         service:
           - name: icecast
-            context: ./icecast
+            context: ./services/streaming/icecast
           - name: liquidsoap
-            context: ./liquidsoap
+            context: ./services/streaming/liquidsoap
             # Liquidsoap arm64 support depends on the base image — disable if unavailable
             platforms: linux/amd64,linux/arm64
           - name: nginx
-            context: ./nginx
+            context: ./infrastructure/nginx
           - name: status-panel
-            context: ./status-panel
+            context: ./apps/status-api
             # Mounts the Docker socket at runtime — only meaningful on amd64 hosts
             platforms: linux/amd64
           - name: analytics
-            context: ./analytics
+            context: ./services/analytics
 
     steps:
       - name: Checkout

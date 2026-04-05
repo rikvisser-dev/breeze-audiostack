@@ -38,16 +38,16 @@ If you are using an AI coding agent, also follow [AGENTS.md](AGENTS.md).
 
 | Service | How to iterate |
 |---------|----------------|
-| `status-dashboard` | `cd status-dashboard && npm install && npm run dev` |
-| `status-panel` | Edit `server.py`, then `docker compose restart status-panel` |
-| `analytics` | Edit `tracker.py`, then `docker compose restart analytics` |
-| `liquidsoap` | Edit `radio.liq`, then `docker compose restart liquidsoap` |
-| `nginx` | Edit `nginx.conf`, then `docker compose restart nginx` |
+| `dashboard` | `cd apps/dashboard && npm install && npm run dev` |
+| `status-api` | Edit `apps/status-api/server.py`, then `docker compose restart status-panel` |
+| `analytics` | Edit `services/analytics/tracker.py`, then `docker compose restart analytics` |
+| `liquidsoap` | Edit `services/streaming/liquidsoap/radio.liq`, then `docker compose restart liquidsoap` |
+| `nginx` | Edit `infrastructure/nginx/nginx.conf`, then `docker compose restart nginx` |
 
 ## Code Style
 
-- **Python** — `ruff check analytics/ status-panel/` (config in `pyproject.toml`)
-- **TypeScript** — `npm run lint` inside `status-dashboard/`
+- **Python** — `ruff check services/analytics/ apps/status-api/` (config in `pyproject.toml`)
+- **TypeScript** — `npm run lint` inside `apps/dashboard/`
 - **Shell** — follow existing style: `set -e`, 4-space indent, `"double-quoted"` variables
 - **Dockerfiles** — `hadolint` clean (run `hadolint <Dockerfile>`)
 

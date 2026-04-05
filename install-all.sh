@@ -81,23 +81,24 @@ detect_python() {
 
 install_node_deps() {
     local manager=""
+    local dashboard_dir="$ROOT_DIR/apps/dashboard"
 
-    if [[ -f "$ROOT_DIR/status-dashboard/pnpm-lock.yaml" ]]; then
+    if [[ -f "$dashboard_dir/pnpm-lock.yaml" ]]; then
         manager="pnpm"
-    elif [[ -f "$ROOT_DIR/status-dashboard/yarn.lock" ]]; then
+    elif [[ -f "$dashboard_dir/yarn.lock" ]]; then
         manager="yarn"
     else
         manager="npm"
     fi
 
-    echo "[node] Installing status-dashboard dependencies with $manager"
+    echo "[node] Installing dashboard dependencies with $manager"
 
     case "$manager" in
         npm)
-            if [[ "$NODE_MODE" == "ci" && -f "$ROOT_DIR/status-dashboard/package-lock.json" ]]; then
-                (cd "$ROOT_DIR/status-dashboard" && npm ci)
+            if [[ "$NODE_MODE" == "ci" && -f "$dashboard_dir/package-lock.json" ]]; then
+                (cd "$dashboard_dir" && npm ci)
             else
-                (cd "$ROOT_DIR/status-dashboard" && npm install)
+                (cd "$dashboard_dir" && npm install)
             fi
             ;;
         yarn)
@@ -107,9 +108,9 @@ install_node_deps() {
                 exit 1
             fi
             if [[ "$NODE_MODE" == "ci" ]]; then
-                (cd "$ROOT_DIR/status-dashboard" && yarn install --frozen-lockfile)
+                (cd "$dashboard_dir" && yarn install --frozen-lockfile)
             else
-                (cd "$ROOT_DIR/status-dashboard" && yarn install)
+                (cd "$dashboard_dir" && yarn install)
             fi
             ;;
         pnpm)
@@ -119,9 +120,9 @@ install_node_deps() {
                 exit 1
             fi
             if [[ "$NODE_MODE" == "ci" ]]; then
-                (cd "$ROOT_DIR/status-dashboard" && pnpm install --frozen-lockfile)
+                (cd "$dashboard_dir" && pnpm install --frozen-lockfile)
             else
-                (cd "$ROOT_DIR/status-dashboard" && pnpm install)
+                (cd "$dashboard_dir" && pnpm install)
             fi
             ;;
     esac
@@ -142,8 +143,8 @@ install_python_deps() {
     fi
 
     echo "[python] Installing dependencies with $python_bin"
-    "$python_bin" "${pip_args[@]}" -r "$ROOT_DIR/analytics/requirements.txt"
-    "$python_bin" "${pip_args[@]}" -r "$ROOT_DIR/status-panel/requirements.txt"
+    "$python_bin" "${pip_args[@]}" -r "$ROOT_DIR/services/analytics/requirements.txt"
+    "$python_bin" "${pip_args[@]}" -r "$ROOT_DIR/apps/status-api/requirements.txt"
 }
 
 if [[ "$SKIP_NODE" -eq 1 && "$SKIP_PYTHON" -eq 1 ]]; then
