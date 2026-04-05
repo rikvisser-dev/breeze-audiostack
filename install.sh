@@ -379,8 +379,9 @@ fi
 # ----------------------------------------------------------
 # Step 3: Install development dependencies (optional)
 # ----------------------------------------------------------
+STEP_NUM=3
 if [ "$DEV_MODE" = "true" ]; then
-    step 3 "Installing development dependencies"
+    step "$STEP_NUM" "Installing development dependencies"
     echo ""
     info "Installing Node.js and Python dependencies..."
     echo ""
@@ -391,16 +392,14 @@ if [ "$DEV_MODE" = "true" ]; then
         error "install-all.sh not found"
         exit 1
     fi
-    STEP_OFFSET=1
+    STEP_NUM=$((STEP_NUM + 1))
 else
     info "Skipping development dependencies (use --dev to install)"
-    STEP_OFFSET=0
 fi
 
 # ----------------------------------------------------------
-# Step $((3+STEP_OFFSET)): Emergency fallback audio
+# Step $STEP_NUM: Emergency fallback audio
 # ----------------------------------------------------------
-STEP_NUM=$((3 + STEP_OFFSET))
 step "$STEP_NUM" "Emergency fallback audio"
 
 if ls emergency-audio/*.mp3 emergency-audio/*.flac emergency-audio/*.wav 2>/dev/null | head -1 &>/dev/null; then
@@ -417,10 +416,12 @@ else
     fi
 fi
 
+# Increment to next step
+STEP_NUM=$((STEP_NUM + 1))
+
 # ----------------------------------------------------------
-# Step $((4+STEP_OFFSET)): Build containers
+# Step $STEP_NUM: Build containers
 # ----------------------------------------------------------
-STEP_NUM=$((4 + STEP_OFFSET))
 step "$STEP_NUM" "Building containers"
 
 if [ "$USE_PREBUILT" = "true" ]; then
@@ -437,10 +438,12 @@ else
     success "All containers built successfully"
 fi
 
+# Increment to next step
+STEP_NUM=$((STEP_NUM + 1))
+
 # ----------------------------------------------------------
-# Step $((5+STEP_OFFSET)): SSL certificate
+# Step $STEP_NUM: SSL certificate
 # ----------------------------------------------------------
-STEP_NUM=$((5 + STEP_OFFSET))
 step "$STEP_NUM" "SSL certificate"
 
 # Source .env for hostname
@@ -477,10 +480,12 @@ else
     fi
 fi
 
+# Increment to next step
+STEP_NUM=$((STEP_NUM + 1))
+
 # ----------------------------------------------------------
-# Step $((6+STEP_OFFSET)): Launch
+# Step $STEP_NUM: Launch
 # ----------------------------------------------------------
-STEP_NUM=$((6 + STEP_OFFSET))
 step "$STEP_NUM" "Launch"
 
 echo ""
