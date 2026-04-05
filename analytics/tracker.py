@@ -1,5 +1,5 @@
 """
-Breeze Radio — Icecast Listener Analytics → PostHog + Pushover Alerts
+Sonicverse — Icecast Listener Analytics → PostHog + Pushover Alerts
 
 Polls Icecast stats endpoint and sends listener metrics to PostHog.
 Receives silence detection webhooks from Liquidsoap and sends Pushover alerts.
@@ -22,7 +22,7 @@ ICECAST_ADMIN_PASSWORD = os.getenv("ICECAST_ADMIN_PASSWORD", "changeme")
 POSTHOG_API_KEY = os.getenv("POSTHOG_API_KEY", "")
 POSTHOG_HOST = os.getenv("POSTHOG_HOST", "https://posthog.sonicverse.eu")
 POLL_INTERVAL = int(os.getenv("POSTHOG_POLL_INTERVAL", "30"))
-DISTINCT_ID = "breezeradio-streaming-stack"
+DISTINCT_ID = "sonicverse-streaming-stack"
 
 # Station
 STATION_NAME = os.getenv("STATION_NAME", "Radio Station")
@@ -370,7 +370,7 @@ def polling_loop():
 # ============================================================
 
 def main():
-    print("[analytics] Starting Breeze Radio analytics + alerts service")
+    print("[analytics] Starting Sonicverse analytics + alerts service")
 
     if not POSTHOG_API_KEY and not PUSHOVER_USER_KEY:
         print("[analytics] Neither POSTHOG_API_KEY nor PUSHOVER_USER_KEY set.", file=sys.stderr)
