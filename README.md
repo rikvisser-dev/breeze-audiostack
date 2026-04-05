@@ -303,6 +303,22 @@ Alerts have a 5-minute cooldown to prevent spam.
     └── fallback.mp3
 ```
 
+## GitHub Workflows
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| **Lint** | Push / PR to `main` | Runs Ruff (Python), ESLint (TypeScript), hadolint (Dockerfiles), yamllint (YAML) |
+| **Docker Build & Push** | Push to `main` | Builds and pushes service images to GHCR |
+| **AI Autolabel Issues** | Issue opened / edited / reopened | Applies `Type:`, `Scope:`, and `Priority:` labels via GitHub Models (GPT-4o-mini) |
+| **Sync Status Labels** | Issue / PR labeled or unlabeled | Keeps `Status:` labels in sync between an issue and its connected PRs (issue → PR, one-way) |
+| **Mirror Issue Labels to PRs** | PR opened / edited / synchronize; issue labeled / unlabeled | Copies all labels from a linked issue to its connected PRs (one-way, add-only). |
+
+### Mirror Issue Labels — maintenance notes
+
+- The workflow uses the `GITHUB_TOKEN` built-in secret — no extra secrets needed.
+- It avoids automation loops by skipping events triggered by bot actors (login ending in `[bot]` or matching `copilot-*`).
+- Cross-reference discovery is capped at 100 events per issue (GitHub GraphQL page-size limit). Issues with more than 100 linked PRs may not be fully synced in a single run.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
