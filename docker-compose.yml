@@ -78,10 +78,10 @@ services:
       - streaming
     restart: unless-stopped
 
-  status-panel:
+  status-api:
     build: ./apps/status-api
-    image: ghcr.io/sonicverse-eu/audiostreaming-stack/status-panel:latest
-    container_name: sonicverse-status-panel
+    image: ghcr.io/sonicverse-eu/audiostreaming-stack/status-api:latest
+    container_name: sonicverse-status-api
     depends_on:
       icecast:
         condition: service_healthy

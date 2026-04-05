@@ -484,7 +484,7 @@ def api_emergency_audio_delete():
 # Safe remote commands (whitelisted only)
 # ============================================================
 
-ALLOWED_SERVICES = {"icecast", "liquidsoap", "nginx", "analytics", "status-panel", "certbot"}
+ALLOWED_SERVICES = {"icecast", "liquidsoap", "nginx", "analytics", "status-api", "certbot"}
 
 READONLY_COMMANDS = {
     "logs": {
@@ -600,6 +600,6 @@ def api_commands_run():
 
 if __name__ == "__main__":
     port = int(os.getenv("STATUS_PANEL_PORT", "8080"))
-    print(f"[status-panel] Starting on port {port}")
-    print(f"[status-panel] Appwrite auth: {'enabled' if APPWRITE_ENDPOINT else 'disabled'}")
+    print(f"[status-api] Starting on port {port}")
+    print(f"[status-api] Appwrite auth: {'enabled' if APPWRITE_ENDPOINT else 'disabled'}")
     app.run(host="0.0.0.0", port=port)

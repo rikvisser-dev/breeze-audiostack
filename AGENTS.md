@@ -16,7 +16,7 @@ MCP documentation: **https://docs.sonicverse.eu/mcp**
 | Service | How to iterate |
 |---------|----------------|
 | `dashboard` | `cd apps/dashboard && npm install && npm run dev` |
-| `status-api` | Edit `apps/status-api/server.py`, then `docker compose restart status-panel` |
+| `status-api` | Edit `apps/status-api/server.py`, then `docker compose restart status-api` |
 | `analytics` | Edit `services/analytics/tracker.py`, then `docker compose restart analytics` |
 | `liquidsoap` | Edit `services/streaming/liquidsoap/radio.liq`, then `docker compose restart liquidsoap` |
 | `nginx` | Edit `infrastructure/nginx/nginx.conf`, then `docker compose restart nginx` |
