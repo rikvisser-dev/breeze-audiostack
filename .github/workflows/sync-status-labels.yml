@@ -1,0 +1,216 @@
+name: Sync Status Labels
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+  pull_request:
+    types: [labeled, unlabeled]
+
+jobs:
+  sync:
+    name: Sync status label to connected issues/PRs
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Sync status labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+
+            // Avoid infinite loops caused by automation-triggered label events.
+            // Copilot Cloud Agent connects as a GitHub App whose login ends in "[bot]"
+            // or matches a "copilot-" prefix, so we guard on both patterns in addition
+            // to the standard github-actions[bot] actor.
+            function isAutomationActor(login) {
+              if (!login) return false;
+              return login.endsWith('[bot]') || /^copilot[-_\s]/i.test(login);
+            }
+
+            if (isAutomationActor(context.actor)) {
+              core.info(`Triggered by automation actor (${context.actor}) – skipping to prevent loop.`);
+              return;
+            }
+
+            // GitHub always populates payload.label for labeled/unlabeled events,
+            // but guard defensively in case of unexpected payload shapes.
+            const labelName = context.payload.label?.name;
+            if (!labelName) {
+              core.info('No label found in payload – skipping.');
+              return;
+            }
+            if (!labelName.startsWith('Status: ')) {
+              core.info(`Label "${labelName}" is not a Status label – skipping.`);
+              return;
+            }
+
+            const isPR = !!context.payload.pull_request;
+            const number = isPR
+              ? context.payload.pull_request.number
+              : context.payload.issue.number;
+
+            core.info(
+              `Processing ${isPR ? 'PR' : 'issue'} #${number}, ` +
+              `action: ${context.payload.action}, label: ${labelName}`
+            );
+
+            // Determine the current set of Status: labels on the triggering item
+            const rawLabels = isPR
+              ? context.payload.pull_request.labels
+              : context.payload.issue.labels;
+            const rawStatusLabels = rawLabels
+              .map(l => l.name)
+              .filter(n => n.startsWith('Status: '));
+
+            core.info(
+              `Current status labels on #${number}: ` +
+              (rawStatusLabels.join(', ') || 'none')
+            );
+
+            // ── Enforce exactly one Status: label on the triggering item ──────────
+            // On a "labeled" event the newly-added label is authoritative; any other
+            // Status: labels that were already present must be removed immediately.
+            let effectiveStatusLabels;
+            if (context.payload.action === 'labeled') {
+              const staleOnTrigger = rawStatusLabels.filter(l => l !== labelName);
+              for (const stale of staleOnTrigger) {
+                core.info(`Removing stale label "${stale}" from #${number}`);
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: number,
+                  name: stale,
+                });
+              }
+              // After cleanup, exactly one Status: label remains
+              effectiveStatusLabels = [labelName];
+              core.info(`Enforced single status label on #${number}: ${labelName}`);
+            } else {
+              // "unlabeled" – propagate whatever remains (may be empty)
+              effectiveStatusLabels = rawStatusLabels;
+            }
+
+            // Sync is one-way: issues → PRs only. After enforcing the single-label
+            // rule on the PR itself, there is nothing more to propagate.
+            if (isPR) {
+              core.info('Triggered by a PR – sync is one-way (issue → PR only), done.');
+              return;
+            }
+
+            // ── Find connected PRs (issue → PR direction only) ────────────────────
+
+            async function getConnectedItems() {
+              const connected = [];
+              // PRs that cross-reference this issue.
+              // 100 is the maximum page size; issues with more than 100 cross-references
+              // may not have all linked PRs synced in a single run.
+              const query = `
+                query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    issue(number: $number) {
+                      timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+                        nodes {
+                          ... on CrossReferencedEvent {
+                            source {
+                              __typename
+                              ... on PullRequest { number }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              const result = await github.graphql(query, { owner, repo, number });
+              const nodes = result.repository.issue.timelineItems.nodes;
+              if (nodes.length === 100) {
+                core.warning(
+                  `#${number} has exactly 100 cross-reference events returned; ` +
+                  'some linked PRs may not have been synced due to API page-size limit.'
+                );
+              }
+              for (const node of nodes) {
+                if (node.source && node.source.__typename === 'PullRequest') {
+                  connected.push({ number: node.source.number, type: 'pr' });
+                }
+              }
+              return connected;
+            }
+
+            const connectedItems = await getConnectedItems();
+            core.info(
+              `Found ${connectedItems.length} connected item(s): ` +
+              (connectedItems.map(i => `#${i.number} (${i.type})`).join(', ') || 'none')
+            );
+
+            if (connectedItems.length === 0) {
+              core.info('No connected items – nothing to sync.');
+              return;
+            }
+
+            // ── Sync status labels to each connected item ─────────────────────────
+
+            for (const item of connectedItems) {
+              const { data: itemData } = await github.rest.issues.get({
+                owner,
+                repo,
+                issue_number: item.number,
+              });
+
+              const itemStatusLabels = itemData.labels
+                .map(l => l.name)
+                .filter(n => n.startsWith('Status: '));
+
+              // Skip if already identical
+              const alreadySynced =
+                effectiveStatusLabels.length === itemStatusLabels.length &&
+                effectiveStatusLabels.every(l => itemStatusLabels.includes(l));
+
+              if (alreadySynced) {
+                core.info(`#${item.number} already in sync – skipping.`);
+                continue;
+              }
+
+              // Remove stale status labels
+              for (const stale of itemStatusLabels) {
+                if (!effectiveStatusLabels.includes(stale)) {
+                  core.info(`Removing "${stale}" from #${item.number}`);
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number: item.number,
+                    name: stale,
+                  });
+                }
+              }
+
+              // Add any missing status labels
+              const labelsToAdd = effectiveStatusLabels.filter(l => !itemStatusLabels.includes(l));
+              if (labelsToAdd.length > 0) {
+                core.info(`Adding [${labelsToAdd.join(', ')}] to #${item.number}`);
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: item.number,
+                  labels: labelsToAdd,
+                });
+              }
+
+              // Comment for traceability
+              const syncedLabels = effectiveStatusLabels.length > 0
+                ? effectiveStatusLabels.map(l => `**${l}**`).join(', ')
+                : 'none';
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: item.number,
+                body:
+                  `🔄 Status label(s) automatically synced from #${number}: ${syncedLabels}.`,
+              });
+
+              core.info(`Synced status labels on #${item.number}.`);
+            }

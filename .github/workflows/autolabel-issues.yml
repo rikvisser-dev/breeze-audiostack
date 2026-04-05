@@ -1,0 +1,210 @@
+name: AI Autolabel Issues
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+jobs:
+  autolabel:
+    name: Apply Type, Scope, and Priority labels via AI
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      models: read
+
+    steps:
+      - name: Autolabel issue
+        uses: actions/github-script@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+
+            // Skip issues created or edited by automation actors.
+            // GitHub Copilot Cloud Agent can appear either as a Bot-type GitHub App
+            // (login ending in "[bot]") or – when acting on behalf of a user through
+            // Copilot Workspace/Cloud Agent – as a regular user but with context.actor
+            // still revealing the automation.  Checking both covers all known cases.
+            function isAutomationActor(login) {
+              if (!login) return false;
+              return login.endsWith('[bot]') || /^copilot[-_\s]/i.test(login);
+            }
+
+            if (
+              issue.user.type === 'Bot' ||
+              isAutomationActor(issue.user.login) ||
+              isAutomationActor(context.actor)
+            ) {
+              core.info(
+                `Automation actor detected ` +
+                `(issue author: ${issue.user.login}, workflow actor: ${context.actor}) – skipping.`
+              );
+              return;
+            }
+
+            // ── Allow-lists ───────────────────────────────────────────────────────
+            const TYPE_LABELS = [
+              'Type: Bug',
+              'Type: Feature',
+              'Type: Documentation',
+              'Type: Maintenance',
+              'Type: Security',
+              'Type: Performance',
+              'Type: Question',
+            ];
+
+            const SCOPE_LABELS = [
+              'Scope: icecast',
+              'Scope: liquidsoap',
+              'Scope: nginx',
+              'Scope: status-panel',
+              'Scope: status-dashboard',
+              'Scope: analytics',
+              'Scope: docker',
+              'Scope: ci',
+            ];
+
+            const PRIORITY_LABELS = [
+              'Priority: Critical',
+              'Priority: High',
+              'Priority: Medium',
+              'Priority: Low',
+            ];
+
+            // ── Check for existing manually-set labels ────────────────────────────
+            const existingLabels = issue.labels.map(l => l.name);
+            const hasType = existingLabels.some(l => l.startsWith('Type: '));
+            const hasScope = existingLabels.some(l => l.startsWith('Scope: '));
+            const hasPriority = existingLabels.some(l => l.startsWith('Priority: '));
+
+            if (hasType && hasScope && hasPriority) {
+              core.info('Issue already has Type, Scope, and Priority labels – skipping AI.');
+              return;
+            }
+
+            // ── Call GitHub Models API ────────────────────────────────────────────
+            const prompt = [
+              'You are a GitHub issue labeler for an audiostreaming Docker stack project.',
+              'The project services are: icecast, liquidsoap, nginx, status-panel, status-dashboard, analytics.',
+              '',
+              'Given the issue below, reply with a JSON object with these exact keys:',
+              '  "type"     – exactly one value from: ' + TYPE_LABELS.join(', '),
+              '  "scopes"   – an array (1–3 items) from: ' + SCOPE_LABELS.join(', '),
+              '  "priority" – exactly one value from: ' + PRIORITY_LABELS.join(', '),
+              '',
+              'Priority rules:',
+              '  - Priority: Critical – data loss, security breach, or complete service outage.',
+              '  - Priority: High     – major functionality broken with significant user impact.',
+              '  - Priority: Medium   – partial functionality affected; a workaround exists.',
+              '  - Priority: Low      – minor issue, cosmetic problem, or non-urgent enhancement.',
+              '',
+              'Scope rules:',
+              '- If the issue clearly maps to one service, set that scope only.',
+              '- If it spans multiple services or is infrastructure-wide, list all relevant ones.',
+              '- If scope cannot be determined, use "Scope: docker".',
+              '',
+              '- Reply ONLY with the JSON object. No explanation, no markdown fences.',
+              '',
+              `Issue title: ${issue.title}`,
+              '',
+              `Issue body:\n${(issue.body || '').slice(0, 3000)}`,
+              // Body is capped at 3 000 chars to stay within the model's token budget.
+            ].join('\n');
+
+            let aiResult;
+            try {
+              const response = await fetch(
+                'https://models.inference.ai.azure.com/chat/completions',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+                  },
+                  body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0,
+                    max_tokens: 150,
+                  }),
+                }
+              );
+
+              if (!response.ok) {
+                const text = await response.text();
+                core.warning(`GitHub Models API error ${response.status}: ${text}`);
+                return;
+              }
+
+              const data = await response.json();
+              const raw = data.choices?.[0]?.message?.content?.trim();
+              core.info(`AI raw response: ${raw}`);
+              aiResult = JSON.parse(raw);
+            } catch (err) {
+              core.warning(`Failed to call or parse AI response: ${err.message}`);
+              return;
+            }
+
+            // ── Validate AI output ────────────────────────────────────────────────
+            const chosenType = TYPE_LABELS.includes(aiResult.type) ? aiResult.type : null;
+            const chosenScopes = (Array.isArray(aiResult.scopes) ? aiResult.scopes : [])
+              .filter(s => SCOPE_LABELS.includes(s));
+            const chosenPriority = PRIORITY_LABELS.includes(aiResult.priority)
+              ? aiResult.priority : null;
+
+            if (!chosenType && chosenScopes.length === 0 && !chosenPriority) {
+              core.warning('AI returned no valid labels – skipping.');
+              return;
+            }
+
+            // ── Ensure labels exist in the repo, create if missing ────────────────
+            async function ensureLabel(name, color) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch {
+                await github.rest.issues.createLabel({ owner, repo, name, color });
+                core.info(`Created label: ${name}`);
+              }
+            }
+
+            const labelsToApply = [];
+
+            if (chosenType && !hasType) {
+              await ensureLabel(chosenType, 'e4e669');
+              labelsToApply.push(chosenType);
+            }
+
+            if (chosenScopes.length > 0 && !hasScope) {
+              for (const s of chosenScopes) {
+                await ensureLabel(s, '0075ca');
+                labelsToApply.push(s);
+              }
+            }
+
+            if (chosenPriority && !hasPriority) {
+              // Color gradient: Critical=red, High=orange, Medium=yellow, Low=green
+              const priorityColors = {
+                'Priority: Critical': 'b60205',
+                'Priority: High':     'e11d48',
+                'Priority: Medium':   'f97316',
+                'Priority: Low':      '22c55e',
+              };
+              await ensureLabel(chosenPriority, priorityColors[chosenPriority] || 'cccccc');
+              labelsToApply.push(chosenPriority);
+            }
+
+            if (labelsToApply.length === 0) {
+              core.info('No new labels to apply.');
+              return;
+            }
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: issue.number,
+              labels: labelsToApply,
+            });
+
+            core.info(`Applied labels to #${issue.number}: ${labelsToApply.join(', ')}`);
