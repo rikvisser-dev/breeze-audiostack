@@ -76,19 +76,19 @@ Options:
   --dev              Install Node/Python dependencies for local development.
                      Required for: building dashboard, running analytics/API locally.
                      Skip this if using GHCR pre-built images (recommended for deployment).
-  --use-prebuilt     Pull images from GHCR instead of building locally (faster).
-                     Use this if you don't plan to modify container code.
+  --build-local      Build container images locally instead of pulling from GHCR.
+                     Use this if you need to modify Dockerfile or container code.
   -h, --help         Show this help message.
 
 Deployment scenarios:
-  Minimal deployment with GHCR images (easiest):
-    $ ./install.sh --use-prebuilt
+  Minimal GHCR deployment (easiest, default):
+    $ ./install.sh
 
   Full development environment:
     $ ./install.sh --dev
 
   Build containers locally (advanced):
-    $ ./install.sh
+    $ ./install.sh --build-local
 
 EOF
 }
@@ -96,11 +96,11 @@ EOF
 TOTAL_STEPS=6
 
 # Parse flags
-USE_PREBUILT=false
+USE_PREBUILT=true
 DEV_MODE=false
 for arg in "$@"; do
     case "$arg" in
-        --use-prebuilt) USE_PREBUILT=true ;;
+        --build-local) USE_PREBUILT=false ;;
         --dev) DEV_MODE=true ;;
         -h|--help) usage; exit 0 ;;
         *)
