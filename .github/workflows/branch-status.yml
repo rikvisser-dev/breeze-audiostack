@@ -10,7 +10,7 @@ jobs:
     name: 'Set "Status: In Progress" when a branch references an issue'
     runs-on: ubuntu-latest
     concurrency:
-      group: branch-status-${{ github.repository }}-${{ github.event.ref || github.ref }}
+      group: branch-status-${{ github.repository }}-${{ github.ref_name }}
       cancel-in-progress: false
     # Only act on branch creation; the push trigger covers branches created
     # without a separate "create" event (e.g. first push of a new remote branch).
