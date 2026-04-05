@@ -51,6 +51,15 @@ Studio (BUTT/etc)
 | **Analytics** | Polls Icecast stats and sends events to PostHog + Pushover alerts |
 | **Certbot** | Automatic Let's Encrypt certificate renewal |
 
+## Repository Structure
+
+- `.github/` contains repository automation and project metadata, including issue templates and GitHub Actions workflows.
+- `.vscode/` contains editor settings and recommended workspace configuration for contributors using VS Code.
+- `apps/` contains operator-facing applications: the Next.js dashboard in `apps/dashboard/` and the Flask status API in `apps/status-api/`.
+- `services/` contains deployable runtime services, grouped by domain: streaming services in `services/streaming/` and telemetry in `services/analytics/`.
+- `infrastructure/` contains edge and routing infrastructure definitions, currently the Nginx reverse proxy in `infrastructure/nginx/`.
+- `emergency-audio/` stores local fallback media used when both studio streams are unavailable (operator-created during setup).
+
 ## Stream Inputs (Studio → Liquidsoap)
 
 | Input | Port | Protocol | Format |
@@ -154,9 +163,9 @@ Compatibility alias (same behavior): `./install-all.sh`
 
 This installs:
 
-- `status-dashboard` JavaScript dependencies (auto-detects `npm`, `yarn`, or `pnpm` lockfiles)
-- `analytics` Python dependencies from `analytics/requirements.txt`
-- `status-panel` Python dependencies from `status-panel/requirements.txt`
+- `dashboard` JavaScript dependencies from `apps/dashboard` (auto-detects `npm`, `yarn`, or `pnpm` lockfiles)
+- `analytics` Python dependencies from `services/analytics/requirements.txt`
+- `status-api` Python dependencies from `apps/status-api/requirements.txt`
 
 Optional flags:
 
@@ -246,7 +255,7 @@ Real-time broadcast engineer dashboard with Appwrite team-based authentication.
 ### Deployment on Appwrite Sites
 
 ```bash
-cd status-dashboard
+cd apps/dashboard
 cp .env.local.example .env.local
 # Edit .env.local with your streaming server URL and Appwrite credentials
 npm install && npm run build
@@ -288,28 +297,32 @@ Alerts have a 5-minute cooldown to prevent spam.
 ├── install.sh
 ├── init-letsencrypt.sh
 ├── setup-firewall.sh
-├── icecast/
-│   ├── Dockerfile
-│   └── icecast.xml
-├── liquidsoap/
-│   ├── Dockerfile
-│   └── radio.liq
-├── nginx/
-│   ├── Dockerfile
-│   └── nginx.conf
-├── analytics/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── tracker.py
-├── status-panel/              ← API backend (Docker)
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── server.py
-├── status-dashboard/          ← Next.js frontend (Appwrite Sites)
-│   ├── app/
-│   ├── components/
-│   ├── lib/
-│   └── package.json
+├── apps/
+│   ├── status-api/            ← API backend (Docker)
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   └── server.py
+│   └── dashboard/             ← Next.js frontend (Appwrite Sites)
+│       ├── app/
+│       ├── components/
+│       ├── lib/
+│       └── package.json
+├── services/
+│   ├── analytics/
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   └── tracker.py
+│   └── streaming/
+│       ├── icecast/
+│       │   ├── Dockerfile
+│       │   └── icecast.xml
+│       └── liquidsoap/
+│           ├── Dockerfile
+│           └── radio.liq
+├── infrastructure/
+│   └── nginx/
+│       ├── Dockerfile
+│       └── nginx.conf
 └── emergency-audio/
     └── fallback.mp3
 ```
@@ -330,12 +343,12 @@ To reduce CI time and avoid unnecessary jobs, pull request checks are scoped by 
 
 - Documentation-only changes (`docs/**` or `**/*.md`) run only lightweight "docs-only" marker jobs and skip code/build jobs.
 - Lint workflow mapping:
-   - Python lint runs when `analytics/**`, `status-panel/**`, related Python requirements files, or `pyproject.toml` change.
-   - TypeScript lint runs when `status-dashboard/**` or its TypeScript, ESLint, Prettier, config, or lock files change.
+   - Python lint runs when `services/analytics/**`, `apps/status-api/**`, related Python requirements files, or `pyproject.toml` change.
+   - TypeScript lint runs when `apps/dashboard/**` or its TypeScript, ESLint, Prettier, config, or lock files change.
    - Dockerfile lint runs when any `Dockerfile` or `docker-compose.yml` changes.
    - YAML lint runs when any `*.yml` or `*.yaml` changes, and validates all tracked YAML files in the repository.
 - Docker Build & Push workflow mapping (PRs):
-   - Builds only the services whose directories changed: `icecast/**`, `liquidsoap/**`, `nginx/**`, `status-panel/**`, `analytics/**`.
+   - Builds only the services whose directories changed: `services/streaming/icecast/**`, `services/streaming/liquidsoap/**`, `infrastructure/nginx/**`, `apps/status-api/**`, `services/analytics/**`.
    - Builds all services when `docker-compose.yml` changes.
 - Pushes to `main` and release tags keep full coverage (no PR path filtering) for safety.
 

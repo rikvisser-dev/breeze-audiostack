@@ -15,16 +15,16 @@ MCP documentation: **https://docs.sonicverse.eu/mcp**
 
 | Service | How to iterate |
 |---------|----------------|
-| `status-dashboard` | `cd status-dashboard && npm install && npm run dev` |
-| `status-panel` | Edit `server.py`, then `docker compose restart status-panel` |
-| `analytics` | Edit `tracker.py`, then `docker compose restart analytics` |
-| `liquidsoap` | Edit `radio.liq`, then `docker compose restart liquidsoap` |
-| `nginx` | Edit `nginx.conf`, then `docker compose restart nginx` |
+| `dashboard` | `cd apps/dashboard && npm install && npm run dev` |
+| `status-api` | Edit `apps/status-api/server.py`, then `docker compose restart status-api` |
+| `analytics` | Edit `services/analytics/tracker.py`, then `docker compose restart analytics` |
+| `liquidsoap` | Edit `services/streaming/liquidsoap/radio.liq`, then `docker compose restart liquidsoap` |
+| `nginx` | Edit `infrastructure/nginx/nginx.conf`, then `docker compose restart nginx` |
 
 ## Required Checks
 
-- Python changes: `ruff check analytics/ status-panel/`
-- TypeScript changes: `cd status-dashboard && npm run lint`
+- Python changes: `ruff check services/analytics/ apps/status-api/`
+- TypeScript changes: `cd apps/dashboard && npm run lint`
 - Dockerfile changes: `hadolint <Dockerfile>`
 - YAML changes: `yamllint -c .yamllint.yml docker-compose.yml .github/workflows/`
 - Service changes that affect runtime behavior: validate with `docker compose up -d` or the smallest equivalent local check

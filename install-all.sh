@@ -81,23 +81,24 @@ detect_python() {
 
 install_node_deps() {
     local manager=""
+    local dashboard_dir="$ROOT_DIR/apps/dashboard"
 
-    if [[ -f "$ROOT_DIR/status-dashboard/pnpm-lock.yaml" ]]; then
+    if [[ -f "$dashboard_dir/pnpm-lock.yaml" ]]; then
         manager="pnpm"
-    elif [[ -f "$ROOT_DIR/status-dashboard/yarn.lock" ]]; then
+    elif [[ -f "$dashboard_dir/yarn.lock" ]]; then
         manager="yarn"
     else
         manager="npm"
     fi
 
-    echo "[node] Installing status-dashboard dependencies with $manager"
+    echo "[node] Installing dashboard dependencies with $manager"
 
     case "$manager" in
         npm)
-            if [[ "$NODE_MODE" == "ci" && -f "$ROOT_DIR/status-dashboard/package-lock.json" ]]; then
-                (cd "$ROOT_DIR/status-dashboard" && npm ci)
+            if [[ "$NODE_MODE" == "ci" && -f "$dashboard_dir/package-lock.json" ]]; then
+                (cd "$dashboard_dir" && npm ci)
             else
-                (cd "$ROOT_DIR/status-dashboard" && npm install)
+                (cd "$dashboard_dir" && npm install)
             fi
             ;;
         yarn)
@@ -107,9 +108,9 @@ install_node_deps() {
                 exit 1
             fi
             if [[ "$NODE_MODE" == "ci" ]]; then
-                (cd "$ROOT_DIR/status-dashboard" && yarn install --frozen-lockfile)
+                (cd "$dashboard_dir" && yarn install --frozen-lockfile)
             else
-                (cd "$ROOT_DIR/status-dashboard" && yarn install)
+                (cd "$dashboard_dir" && yarn install)
             fi
             ;;
         pnpm)
@@ -119,9 +120,9 @@ install_node_deps() {
                 exit 1
             fi
             if [[ "$NODE_MODE" == "ci" ]]; then
-                (cd "$ROOT_DIR/status-dashboard" && pnpm install --frozen-lockfile)
+                (cd "$dashboard_dir" && pnpm install --frozen-lockfile)
             else
-                (cd "$ROOT_DIR/status-dashboard" && pnpm install)
+                (cd "$dashboard_dir" && pnpm install)
             fi
             ;;
     esac
@@ -130,6 +131,39 @@ install_node_deps() {
 install_python_deps() {
     local python_bin
     local pip_args=("-m" "pip" "install")
+    local requirements=(
+        "$ROOT_DIR/services/analytics/requirements.txt"
+        "$ROOT_DIR/apps/status-api/requirements.txt"
+    )
+
+    run_pip_install() {
+        local requirements_file
+        local output
+
+        for requirements_file in "${requirements[@]}"; do
+            if [[ "$#" -gt 0 ]]; then
+                if ! output="$("$python_bin" "${pip_args[@]}" "$@" -r "$requirements_file" 2>&1)"; then
+                    echo "$output" >&2
+                    if [[ "$output" == *"externally-managed-environment"* ]]; then
+                        return 42
+                    fi
+                    return 1
+                fi
+            elif ! output="$("$python_bin" "${pip_args[@]}" -r "$requirements_file" 2>&1)"; then
+                echo "$output" >&2
+                if [[ "$output" == *"externally-managed-environment"* ]]; then
+                    return 42
+                fi
+                return 1
+            fi
+
+            if [[ -n "$output" ]]; then
+                echo "$output"
+            fi
+        done
+
+        return 0
+    }
 
     python_bin="$(detect_python)"
     if [[ -z "$python_bin" ]]; then
@@ -142,8 +176,22 @@ install_python_deps() {
     fi
 
     echo "[python] Installing dependencies with $python_bin"
-    "$python_bin" "${pip_args[@]}" -r "$ROOT_DIR/analytics/requirements.txt"
-    "$python_bin" "${pip_args[@]}" -r "$ROOT_DIR/status-panel/requirements.txt"
+
+    local pip_status=0
+    run_pip_install || pip_status=$?
+
+    if [[ "$pip_status" -eq 0 ]]; then
+        return
+    fi
+
+    if [[ "$pip_status" -eq 42 && "$PIP_USER" -eq 0 ]]; then
+        echo "[python] Detected externally managed Python environment (PEP 668)."
+        echo "[python] Retrying with --user --break-system-packages for local development installs."
+        run_pip_install --user --break-system-packages
+        return
+    fi
+
+    exit 1
 }
 
 if [[ "$SKIP_NODE" -eq 1 && "$SKIP_PYTHON" -eq 1 ]]; then

@@ -31,39 +31,39 @@ jobs:
               - 'docs/**'
               - '**/*.md'
             python:
-              - 'analytics/**/*.py'
-              - 'status-panel/**/*.py'
-              - 'analytics/requirements.txt'
-              - 'status-panel/requirements.txt'
+              - 'services/analytics/**/*.py'
+              - 'apps/status-api/**/*.py'
+              - 'services/analytics/requirements.txt'
+              - 'apps/status-api/requirements.txt'
               - 'pyproject.toml'
             typescript:
-              - 'status-dashboard/**/*.ts'
-              - 'status-dashboard/**/*.tsx'
-              - 'status-dashboard/**/*.js'
-              - 'status-dashboard/**/*.mjs'
-              - 'status-dashboard/**/*.cjs'
-              - 'status-dashboard/.eslintrc.json'
-              - 'status-dashboard/.eslintignore'
-              - 'status-dashboard/eslint.config.js'
-              - 'status-dashboard/eslint.config.mjs'
-              - 'status-dashboard/eslint.config.cjs'
-              - 'status-dashboard/.prettierrc'
-              - 'status-dashboard/.prettierrc.json'
-              - 'status-dashboard/.prettierrc.yml'
-              - 'status-dashboard/.prettierrc.yaml'
-              - 'status-dashboard/.prettierrc.js'
-              - 'status-dashboard/.prettierrc.mjs'
-              - 'status-dashboard/.prettierrc.cjs'
-              - 'status-dashboard/prettier.config.js'
-              - 'status-dashboard/prettier.config.mjs'
-              - 'status-dashboard/prettier.config.cjs'
-              - 'status-dashboard/package.json'
-              - 'status-dashboard/package-lock.json'
-              - 'status-dashboard/pnpm-lock.yaml'
-              - 'status-dashboard/yarn.lock'
-              - 'status-dashboard/tsconfig.json'
-              - 'status-dashboard/next.config.ts'
-              - 'status-dashboard/postcss.config.mjs'
+              - 'apps/dashboard/**/*.ts'
+              - 'apps/dashboard/**/*.tsx'
+              - 'apps/dashboard/**/*.js'
+              - 'apps/dashboard/**/*.mjs'
+              - 'apps/dashboard/**/*.cjs'
+              - 'apps/dashboard/.eslintrc.json'
+              - 'apps/dashboard/.eslintignore'
+              - 'apps/dashboard/eslint.config.js'
+              - 'apps/dashboard/eslint.config.mjs'
+              - 'apps/dashboard/eslint.config.cjs'
+              - 'apps/dashboard/.prettierrc'
+              - 'apps/dashboard/.prettierrc.json'
+              - 'apps/dashboard/.prettierrc.yml'
+              - 'apps/dashboard/.prettierrc.yaml'
+              - 'apps/dashboard/.prettierrc.js'
+              - 'apps/dashboard/.prettierrc.mjs'
+              - 'apps/dashboard/.prettierrc.cjs'
+              - 'apps/dashboard/prettier.config.js'
+              - 'apps/dashboard/prettier.config.mjs'
+              - 'apps/dashboard/prettier.config.cjs'
+              - 'apps/dashboard/package.json'
+              - 'apps/dashboard/package-lock.json'
+              - 'apps/dashboard/pnpm-lock.yaml'
+              - 'apps/dashboard/yarn.lock'
+              - 'apps/dashboard/tsconfig.json'
+              - 'apps/dashboard/next.config.ts'
+              - 'apps/dashboard/postcss.config.mjs'
             dockerfiles:
               - '**/Dockerfile'
               - 'docker-compose.yml'
@@ -102,7 +102,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/ruff-action@v3
         with:
-          args: "check analytics/ status-panel/"
+          args: "check services/analytics/ apps/status-api/"
 
   typescript:
     name: TypeScript (ESLint)
@@ -115,9 +115,9 @@ jobs:
         with:
           node-version: "22"
       - run: npm install
-        working-directory: status-dashboard
+        working-directory: apps/dashboard
       - run: npm run lint
-        working-directory: status-dashboard
+        working-directory: apps/dashboard
 
   dockerfiles:
     name: Dockerfiles (hadolint)

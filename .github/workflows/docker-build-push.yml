@@ -21,7 +21,7 @@ jobs:
       icecast: ${{ steps.filter.outputs.icecast }}
       liquidsoap: ${{ steps.filter.outputs.liquidsoap }}
       nginx: ${{ steps.filter.outputs.nginx }}
-      status_panel: ${{ steps.filter.outputs.status_panel }}
+      status_api: ${{ steps.filter.outputs.status_api }}
       analytics: ${{ steps.filter.outputs.analytics }}
     steps:
       - uses: actions/checkout@v4
@@ -39,15 +39,15 @@ jobs:
             affects_all:
               - 'docker-compose.yml'
             icecast:
-              - 'icecast/**'
+              - 'services/streaming/icecast/**'
             liquidsoap:
-              - 'liquidsoap/**'
+              - 'services/streaming/liquidsoap/**'
             nginx:
-              - 'nginx/**'
-            status_panel:
-              - 'status-panel/**'
+              - 'infrastructure/nginx/**'
+            status_api:
+              - 'apps/status-api/**'
             analytics:
-              - 'analytics/**'
+              - 'services/analytics/**'
 
       - name: Compute docs-only change flag
         id: docs_only
@@ -59,7 +59,7 @@ jobs:
                 "${{ steps.filter.outputs.icecast }}" == 'false' && \
                 "${{ steps.filter.outputs.liquidsoap }}" == 'false' && \
                 "${{ steps.filter.outputs.nginx }}" == 'false' && \
-                "${{ steps.filter.outputs.status_panel }}" == 'false' && \
+                    "${{ steps.filter.outputs.status_api }}" == 'false' && \
                 "${{ steps.filter.outputs.analytics }}" == 'false' ]]; then
                 docs_only=true
           fi
@@ -72,7 +72,7 @@ jobs:
           echo "icecast=${{ steps.filter.outputs.icecast }}"
           echo "liquidsoap=${{ steps.filter.outputs.liquidsoap }}"
           echo "nginx=${{ steps.filter.outputs.nginx }}"
-          echo "status_panel=${{ steps.filter.outputs.status_panel }}"
+          echo "status_api=${{ steps.filter.outputs.status_api }}"
           echo "analytics=${{ steps.filter.outputs.analytics }}"
 
   build:
@@ -85,7 +85,7 @@ jobs:
       (matrix.service.name == 'icecast' && needs.changes.outputs.icecast == 'true') ||
       (matrix.service.name == 'liquidsoap' && needs.changes.outputs.liquidsoap == 'true') ||
       (matrix.service.name == 'nginx' && needs.changes.outputs.nginx == 'true') ||
-      (matrix.service.name == 'status-panel' && needs.changes.outputs.status_panel == 'true') ||
+      (matrix.service.name == 'status-api' && needs.changes.outputs.status_api == 'true') ||
       (matrix.service.name == 'analytics' && needs.changes.outputs.analytics == 'true')
     permissions:
       contents: read
@@ -96,19 +96,19 @@ jobs:
       matrix:
         service:
           - name: icecast
-            context: ./icecast
+            context: ./services/streaming/icecast
           - name: liquidsoap
-            context: ./liquidsoap
+            context: ./services/streaming/liquidsoap
             # Liquidsoap arm64 support depends on the base image — disable if unavailable
             platforms: linux/amd64,linux/arm64
           - name: nginx
-            context: ./nginx
-          - name: status-panel
-            context: ./status-panel
+            context: ./infrastructure/nginx
+          - name: status-api
+            context: ./apps/status-api
             # Mounts the Docker socket at runtime — only meaningful on amd64 hosts
             platforms: linux/amd64
           - name: analytics
-            context: ./analytics
+            context: ./services/analytics
 
     steps:
       - name: Checkout
