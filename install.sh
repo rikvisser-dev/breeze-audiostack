@@ -398,7 +398,7 @@ fi
 # Step $((3+STEP_OFFSET)): Emergency fallback audio
 # ----------------------------------------------------------
 STEP_NUM=$((3 + STEP_OFFSET))
-step $STEP_NUM "Emergency fallback audio"
+step "$STEP_NUM" "Emergency fallback audio"
 
 if ls emergency-audio/*.mp3 emergency-audio/*.flac emergency-audio/*.wav 2>/dev/null | head -1 &>/dev/null; then
     success "Fallback audio found in emergency-audio/"
@@ -418,7 +418,7 @@ fi
 # Step $((4+STEP_OFFSET)): Build containers
 # ----------------------------------------------------------
 STEP_NUM=$((4 + STEP_OFFSET))
-step $STEP_NUM "Building containers"
+step "$STEP_NUM" "Building containers"
 
 if [ "$USE_PREBUILT" = "true" ]; then
     info "Pulling pre-built images from GHCR..."
@@ -438,7 +438,7 @@ fi
 # Step $((5+STEP_OFFSET)): SSL certificate
 # ----------------------------------------------------------
 STEP_NUM=$((5 + STEP_OFFSET))
-step $STEP_NUM "SSL certificate"
+step "$STEP_NUM" "SSL certificate"
 
 # Source .env for hostname
 source .env 2>/dev/null || true
@@ -478,7 +478,7 @@ fi
 # Step $((6+STEP_OFFSET)): Launch
 # ----------------------------------------------------------
 STEP_NUM=$((6 + STEP_OFFSET))
-step $STEP_NUM "Launch"
+step "$STEP_NUM" "Launch"
 
 echo ""
 read -rp "  → Start the streaming stack now? (Y/n): " start_now
