@@ -32,7 +32,8 @@ jobs:
             core.info(`Branch: ${branch}`);
 
             // Extract all digit sequences from the branch name as candidate issue numbers.
-            // Handles patterns like: 123-fix-thing, feat/123-desc, fix/issue-123, issue/42, 42
+            // Broad matching is intentional: handles patterns like 123-fix-thing,
+            // feat/123-desc, fix/issue-123, issue/42, and plain 42.
             const candidates = [...branch.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1], 10));
 
             if (candidates.length === 0) {

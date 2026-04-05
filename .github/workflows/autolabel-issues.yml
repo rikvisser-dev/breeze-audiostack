@@ -6,7 +6,7 @@ on:
 
 jobs:
   autolabel:
-    name: Apply Type and Scope labels via AI
+    name: Apply Type, Scope, and Priority labels via AI
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -50,15 +50,21 @@ jobs:
               'Scope: ci',
             ];
 
-            const ALL_AUTOLABELS = [...TYPE_LABELS, ...SCOPE_LABELS];
+            const PRIORITY_LABELS = [
+              'Priority: Critical',
+              'Priority: High',
+              'Priority: Medium',
+              'Priority: Low',
+            ];
 
-            // ── Check for existing manually-set Type/Scope labels ─────────────────
+            // ── Check for existing manually-set labels ────────────────────────────
             const existingLabels = issue.labels.map(l => l.name);
             const hasType = existingLabels.some(l => l.startsWith('Type: '));
             const hasScope = existingLabels.some(l => l.startsWith('Scope: '));
+            const hasPriority = existingLabels.some(l => l.startsWith('Priority: '));
 
-            if (hasType && hasScope) {
-              core.info('Issue already has both Type and Scope labels – skipping AI.');
+            if (hasType && hasScope && hasPriority) {
+              core.info('Issue already has Type, Scope, and Priority labels – skipping AI.');
               return;
             }
 
@@ -68,18 +74,27 @@ jobs:
               'The project services are: icecast, liquidsoap, nginx, status-panel, status-dashboard, analytics.',
               '',
               'Given the issue below, reply with a JSON object with these exact keys:',
-              '  "type"  – exactly one value from: ' + TYPE_LABELS.join(', '),
-              '  "scopes" – an array (1–3 items) from: ' + SCOPE_LABELS.join(', '),
+              '  "type"     – exactly one value from: ' + TYPE_LABELS.join(', '),
+              '  "scopes"   – an array (1–3 items) from: ' + SCOPE_LABELS.join(', '),
+              '  "priority" – exactly one value from: ' + PRIORITY_LABELS.join(', '),
               '',
-              'Rules:',
+              'Priority rules:',
+              '  - Priority: Critical – data loss, security breach, or complete service outage.',
+              '  - Priority: High     – major functionality broken with significant user impact.',
+              '  - Priority: Medium   – partial functionality affected; a workaround exists.',
+              '  - Priority: Low      – minor issue, cosmetic problem, or non-urgent enhancement.',
+              '',
+              'Scope rules:',
               '- If the issue clearly maps to one service, set that scope only.',
               '- If it spans multiple services or is infrastructure-wide, list all relevant ones.',
               '- If scope cannot be determined, use "Scope: docker".',
+              '',
               '- Reply ONLY with the JSON object. No explanation, no markdown fences.',
               '',
               `Issue title: ${issue.title}`,
               '',
               `Issue body:\n${(issue.body || '').slice(0, 3000)}`,
+              // Body is capped at 3 000 chars to stay within the model's token budget.
             ].join('\n');
 
             let aiResult;
@@ -96,7 +111,7 @@ jobs:
                     model: 'gpt-4o-mini',
                     messages: [{ role: 'user', content: prompt }],
                     temperature: 0,
-                    max_tokens: 128,
+                    max_tokens: 150,
                   }),
                 }
               );
@@ -120,8 +135,10 @@ jobs:
             const chosenType = TYPE_LABELS.includes(aiResult.type) ? aiResult.type : null;
             const chosenScopes = (Array.isArray(aiResult.scopes) ? aiResult.scopes : [])
               .filter(s => SCOPE_LABELS.includes(s));
+            const chosenPriority = PRIORITY_LABELS.includes(aiResult.priority)
+              ? aiResult.priority : null;
 
-            if (!chosenType && chosenScopes.length === 0) {
+            if (!chosenType && chosenScopes.length === 0 && !chosenPriority) {
               core.warning('AI returned no valid labels – skipping.');
               return;
             }
@@ -148,6 +165,18 @@ jobs:
                 await ensureLabel(s, '0075ca');
                 labelsToApply.push(s);
               }
+            }
+
+            if (chosenPriority && !hasPriority) {
+              // Color gradient: Critical=red, High=orange, Medium=yellow, Low=green
+              const priorityColors = {
+                'Priority: Critical': 'b60205',
+                'Priority: High':     'e11d48',
+                'Priority: Medium':   'f97316',
+                'Priority: Low':      '22c55e',
+              };
+              await ensureLabel(chosenPriority, priorityColors[chosenPriority] || 'cccccc');
+              labelsToApply.push(chosenPriority);
             }
 
             if (labelsToApply.length === 0) {

@@ -118,7 +118,14 @@ jobs:
                 }
               `;
               const result = await github.graphql(query, { owner, repo, number });
-              for (const node of result.repository.issue.timelineItems.nodes) {
+              const nodes = result.repository.issue.timelineItems.nodes;
+              if (nodes.length === 100) {
+                core.warning(
+                  `#${number} has exactly 100 cross-reference events returned; ` +
+                  'some linked PRs may not have been synced due to API page-size limit.'
+                );
+              }
+              for (const node of nodes) {
                 if (node.source && node.source.__typename === 'PullRequest') {
                   connected.push({ number: node.source.number, type: 'pr' });
                 }
