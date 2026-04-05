@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: status-dashboard/package-lock.json
+          cache-dependency-path: status-dashboard/package.json
       - run: npm ci
         working-directory: status-dashboard
       - run: npm run lint
