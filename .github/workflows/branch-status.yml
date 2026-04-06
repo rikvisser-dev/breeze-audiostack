@@ -136,7 +136,9 @@ jobs:
                 owner,
                 repo,
                 issue_number: issueNumber,
-                body: `${commentMarker}\n🌿 Branch \`${branch}\` was created – status automatically set to **${STATUS_LABEL}**.`,
+                body:
+                  `${commentMarker}\n🌿 Branch \`${branch}\` was created – ` +
+                  `status automatically set to **${STATUS_LABEL}**.`,
               });
 
               core.info(`Set "${STATUS_LABEL}" on #${issueNumber}.`);
