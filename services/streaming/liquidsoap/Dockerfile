@@ -1,13 +1,13 @@
 FROM savonet/liquidsoap:v2.4.x-latest
 
-ARG OPENSSL_PROVIDER_LEGACY_VERSION=3.5.4-1~deb13u2
-
 # hadolint ignore=DL3002
 USER root
 
-# Pull the patched Debian libpng build called out by the vulnerability report.
+# Pull in the latest patched Debian package metadata so the image does not
+# inherit a vulnerable dpkg build from the upstream base layer.
+# hadolint ignore=DL3008
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends libpng16-16=1.6.48-1+deb13u4 \
+    && apt-get install --only-upgrade -y --no-install-recommends dpkg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY radio.liq /etc/liquidsoap/radio.liq
