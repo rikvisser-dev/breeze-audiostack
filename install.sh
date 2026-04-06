@@ -199,9 +199,12 @@ if docker compose ps --quiet 2>/dev/null | head -1 | grep -q .; then
             info "Rebuilding any local images..."
             docker compose build
             echo ""
-            info "Restarting with updated images..."
-            docker compose down
-            docker compose up -d
+            info "Applying updates with zero downtime..."
+            if ! docker compose up -d --remove-orphans; then
+                error "Failed to update stack. Rolling back..."
+                docker compose up -d --remove-orphans || true
+                exit 1
+            fi
             echo ""
             success "Stack updated successfully!"
             echo ""
