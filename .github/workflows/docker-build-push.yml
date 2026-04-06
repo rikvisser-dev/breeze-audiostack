@@ -89,10 +89,14 @@ jobs:
             local name="$1"
             local context="$2"
             local platforms="$3"
+            local runner="$4"
 
             matrix+="$sep{\"name\":\"$name\",\"context\":\"$context\""
             if [[ -n "$platforms" ]]; then
               matrix+=",\"platforms\":\"$platforms\""
+            fi
+            if [[ -n "$runner" ]]; then
+              matrix+=",\"runner\":\"$runner\""
             fi
             matrix+="}"
             sep=','
@@ -100,22 +104,30 @@ jobs:
 
           if [[ "${{ github.event_name }}" != 'pull_request' || \
                 "${{ steps.filter.outputs.affects_all }}" == 'true' ]]; then
-            add_service icecast ./services/streaming/icecast ''
-            add_service liquidsoap ./services/streaming/liquidsoap linux/amd64,linux/arm64
-            add_service nginx ./infrastructure/nginx ''
-            add_service status-api ./apps/status-api linux/amd64
-            add_service analytics ./services/analytics ''
+            add_service icecast ./services/streaming/icecast \
+              linux/amd64,linux/arm64,linux/386 \
+              blacksmith-8vcpu-ubuntu-2404
+            add_service liquidsoap ./services/streaming/liquidsoap linux/amd64,linux/arm64 ''
+            add_service nginx ./infrastructure/nginx \
+              linux/amd64,linux/arm64,linux/386 \
+              blacksmith-8vcpu-ubuntu-2404
+            add_service status-api ./apps/status-api linux/amd64 ''
+            add_service analytics ./services/analytics linux/amd64,linux/arm64 ''
           elif [[ "${{ steps.docs_only.outputs.value }}" != 'true' ]]; then
             [[ "${{ steps.filter.outputs.icecast }}" == 'true' ]] && \
-              add_service icecast ./services/streaming/icecast ''
+              add_service icecast ./services/streaming/icecast \
+                linux/amd64,linux/arm64,linux/386 \
+                blacksmith-8vcpu-ubuntu-2404
             [[ "${{ steps.filter.outputs.liquidsoap }}" == 'true' ]] && \
-              add_service liquidsoap ./services/streaming/liquidsoap linux/amd64,linux/arm64
+              add_service liquidsoap ./services/streaming/liquidsoap linux/amd64,linux/arm64 ''
             [[ "${{ steps.filter.outputs.nginx }}" == 'true' ]] && \
-              add_service nginx ./infrastructure/nginx ''
+              add_service nginx ./infrastructure/nginx \
+                linux/amd64,linux/arm64,linux/386 \
+                blacksmith-8vcpu-ubuntu-2404
             [[ "${{ steps.filter.outputs.status_api }}" == 'true' ]] && \
-              add_service status-api ./apps/status-api linux/amd64
+              add_service status-api ./apps/status-api linux/amd64 ''
             [[ "${{ steps.filter.outputs.analytics }}" == 'true' ]] && \
-              add_service analytics ./services/analytics ''
+              add_service analytics ./services/analytics linux/amd64,linux/arm64 ''
           fi
 
           matrix+=']}'
@@ -124,7 +136,7 @@ jobs:
 
   build:
     name: Build ${{ matrix.service.name }}
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ matrix.service.runner || 'blacksmith-4vcpu-ubuntu-2404' }}
     needs: changes
     if: >-
       (github.event_name == 'pull_request' && needs.changes.outputs.docs_only != 'true') ||
@@ -218,33 +230,91 @@ jobs:
             local ref="$1"
 
             docker buildx imagetools inspect "$ref" --format '{{json .Manifest.Manifests}}' \
-              | jq -r --arg platforms "$platforms" '
-                  ($platforms | split(",") | map(split("/") | {os: .[0], architecture: .[1]}) | INDEX(.os + "/" + .architecture)) as $wanted
+              | jq -c --arg platforms "$platforms" '
+                  ($platforms
+                    | split(",")
+                    | map(gsub("^ +| +$"; ""))
+                    | map(split("/"))
+                    | map({os: .[0], architecture: .[1]})
+                    | INDEX(.os + "/" + .architecture)
+                  ) as $wanted
                   | map(select(.Platform != null))
                   | map(select(.Platform.os != "unknown" and .Platform.architecture != "unknown"))
                   | map(select($wanted[(.Platform.os + "/" + .Platform.architecture)] != null))
-                  | map({platform: (.Platform.os + "/" + .Platform.architecture), digest: .Digest})
-                  | sort_by(.platform)
-                  | .[]
-                  | "\(.platform)=\(.digest)"'
+                  | map({
+                      key: (.Platform.os + "/" + .Platform.architecture),
+                      value: .Digest
+                    })
+                  | from_entries'
           }
 
           ghcr_manifest="$(normalize_manifest "$ghcr_ref")"
           dockerhub_manifest="$(normalize_manifest "$dockerhub_ref")"
 
+          expected_list="$(
+            printf '%s\n' "$platforms" \
+              | tr ',' '\n' \
+              | sed 's/^ *//;s/ *$//' \
+              | sort -u
+          )"
+
+          ghcr_list="$(echo "$ghcr_manifest" | jq -r 'keys[]' | sort -u)"
+          dockerhub_list="$(echo "$dockerhub_manifest" | jq -r 'keys[]' | sort -u)"
+
+          missing_ghcr="$(
+            comm -23 \
+              <(printf '%s\n' "$expected_list") \
+              <(printf '%s\n' "$ghcr_list")
+          )"
+
+          missing_dockerhub="$(
+            comm -23 \
+              <(printf '%s\n' "$expected_list") \
+              <(printf '%s\n' "$dockerhub_list")
+          )"
+
           echo "Expected platforms: $platforms"
-          echo "GHCR platform digests:"
-          echo "$ghcr_manifest"
-          echo "Docker Hub platform digests:"
-          echo "$dockerhub_manifest"
+          echo "GHCR platform map: $ghcr_manifest"
+          echo "Docker Hub platform map: $dockerhub_manifest"
+
+          if [[ -n "$missing_ghcr" ]]; then
+            echo "GHCR is missing expected platform(s) for ${{ matrix.service.name }}:" >&2
+            printf '%s\n' "$missing_ghcr" >&2
+            exit 1
+          fi
+
+          if [[ -n "$missing_dockerhub" ]]; then
+            echo "Docker Hub is missing expected platform(s) for ${{ matrix.service.name }}:" >&2
+            printf '%s\n' "$missing_dockerhub" >&2
+            exit 1
+          fi
 
           if [[ -z "$ghcr_manifest" || -z "$dockerhub_manifest" ]]; then
             echo "Unable to resolve runtime platform manifests for ${{ matrix.service.name }}" >&2
             exit 1
           fi
 
-          if [[ "$ghcr_manifest" != "$dockerhub_manifest" ]]; then
+          digest_mismatch="$(
+            jq -n \
+              --argjson ghcr "$ghcr_manifest" \
+              --argjson dockerhub "$dockerhub_manifest" \
+              --arg platforms "$platforms" '
+                ($platforms | split(",") | map(gsub("^ +| +$"; ""))) as $expected
+                | [
+                    $expected[]
+                    | select($ghcr[.] != $dockerhub[.])
+                    | {
+                        platform: .,
+                        ghcr: $ghcr[.],
+                        dockerhub: $dockerhub[.]
+                      }
+                  ]
+              '
+          )"
+
+          if [[ "$(echo "$digest_mismatch" | jq 'length')" -gt 0 ]]; then
             echo "Runtime platform digest mismatch between GHCR and Docker Hub for ${{ matrix.service.name }}" >&2
+            echo "$digest_mismatch" >&2
             exit 1
           fi
 
