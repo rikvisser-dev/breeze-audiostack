@@ -34,7 +34,7 @@ jobs:
         run: |
           mkdir -p public
           cp install-redirect.html public/install.html
-          
+
           # Create alternative paths for SEO and discoverability
           mkdir -p public/install-audiostack
           cp install-redirect.html public/install-audiostack/index.html
