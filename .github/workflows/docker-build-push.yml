@@ -8,8 +8,7 @@ on:
     branches: [main]
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_BASE: ghcr.io/sonicverse-eu/audiostreaming-stack
+  GHCR_IMAGE_BASE: ghcr.io/sonicverse-eu/audiostreaming-stack
 
 jobs:
   changes:
@@ -79,14 +78,6 @@ jobs:
     name: Build ${{ matrix.service.name }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: changes
-    if: >-
-      github.event_name != 'pull_request' ||
-      needs.changes.outputs.affects_all == 'true' ||
-      (matrix.service.name == 'icecast' && needs.changes.outputs.icecast == 'true') ||
-      (matrix.service.name == 'liquidsoap' && needs.changes.outputs.liquidsoap == 'true') ||
-      (matrix.service.name == 'nginx' && needs.changes.outputs.nginx == 'true') ||
-      (matrix.service.name == 'status-api' && needs.changes.outputs.status_api == 'true') ||
-      (matrix.service.name == 'analytics' && needs.changes.outputs.analytics == 'true')
     permissions:
       contents: read
       packages: write
@@ -111,28 +102,86 @@ jobs:
             context: ./services/analytics
 
     steps:
+      - name: Decide whether this matrix item should build
+        id: should_build
+        run: |
+          set -e
+          should_build=false
+
+              if [[ "${{ github.event_name }}" != 'pull_request' || \
+                "${{ needs.changes.outputs.affects_all }}" == 'true' ]]; then
+            should_build=true
+          else
+            case "${{ matrix.service.name }}" in
+              icecast)
+                [[ "${{ needs.changes.outputs.icecast }}" == 'true' ]] && should_build=true
+                ;;
+              liquidsoap)
+                [[ "${{ needs.changes.outputs.liquidsoap }}" == 'true' ]] && should_build=true
+                ;;
+              nginx)
+                [[ "${{ needs.changes.outputs.nginx }}" == 'true' ]] && should_build=true
+                ;;
+              status-api)
+                [[ "${{ needs.changes.outputs.status_api }}" == 'true' ]] && should_build=true
+                ;;
+              analytics)
+                [[ "${{ needs.changes.outputs.analytics }}" == 'true' ]] && should_build=true
+                ;;
+            esac
+          fi
+
+          echo "value=$should_build" >> "$GITHUB_OUTPUT"
+          echo "should_build=$should_build"
+
       - name: Checkout
+        if: steps.should_build.outputs.value == 'true'
         uses: actions/checkout@v4
 
       - name: Set up QEMU
+        if: steps.should_build.outputs.value == 'true'
         uses: docker/setup-qemu-action@v4
 
       - name: Setup Blacksmith Builder
+        if: steps.should_build.outputs.value == 'true'
         uses: useblacksmith/setup-docker-builder@v1
 
+      - name: Validate Docker Hub credentials
+        if: github.event_name != 'pull_request' && steps.should_build.outputs.value == 'true'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -e
+          if [[ -z "$DOCKERHUB_USERNAME" || -z "$DOCKERHUB_TOKEN" ]]; then
+            echo "Missing Docker Hub credentials: set DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets." >&2
+            exit 1
+          fi
+
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.should_build.outputs.value == 'true'
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request' && steps.should_build.outputs.value == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Extract metadata
         id: meta
+        if: steps.should_build.outputs.value == 'true'
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.IMAGE_BASE }}/${{ matrix.service.name }}
+          images: |
+            ${{ env.GHCR_IMAGE_BASE }}/${{ matrix.service.name }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/audiostreaming-stack-${{ matrix.service.name }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -143,6 +192,8 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
+        if: steps.should_build.outputs.value == 'true'
+        id: build_push
         uses: useblacksmith/build-push-action@v2
         with:
           context: ${{ matrix.service.context }}
@@ -150,6 +201,32 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Verify GHCR and Docker Hub digests match
+        if: github.event_name != 'pull_request' && steps.should_build.outputs.value == 'true'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          set -e
+          short_sha="${GITHUB_SHA::7}"
+          ghcr_ref="${{ env.GHCR_IMAGE_BASE }}/${{ matrix.service.name }}:sha-${short_sha}"
+          dockerhub_ref="docker.io/${DOCKERHUB_USERNAME}/audiostreaming-stack-${{ matrix.service.name }}"
+          dockerhub_ref="${dockerhub_ref}:sha-${short_sha}"
+
+          ghcr_digest="$(docker buildx imagetools inspect "$ghcr_ref" --format '{{.Manifest.Digest}}')"
+          dockerhub_digest="$(docker buildx imagetools inspect "$dockerhub_ref" --format '{{.Manifest.Digest}}')"
+
+          echo "GHCR digest:      $ghcr_digest"
+          echo "Docker Hub digest: $dockerhub_digest"
+
+          if [[ "$ghcr_digest" != "$dockerhub_digest" ]]; then
+            echo "Digest mismatch between GHCR and Docker Hub for ${{ matrix.service.name }}" >&2
+            exit 1
+          fi
+
+      - name: Skip unchanged service on PR
+        if: github.event_name == 'pull_request' && steps.should_build.outputs.value != 'true'
+        run: echo "No relevant changes for ${{ matrix.service.name }} in this PR. Skipping build."
 
   docs-only:
     name: Docs-only PR optimization
