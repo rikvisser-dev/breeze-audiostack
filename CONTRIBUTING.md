@@ -4,6 +4,10 @@ Thank you for your interest in contributing. This document covers how to get sta
 
 Primary documentation lives at **https://docs.sonicverse.eu**. Use it as the canonical source for setup and operational guidance.
 
+## Code of Conduct
+
+This project follows [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). By participating, you agree to follow its expectations for respectful and constructive collaboration.
+
 If you are using an AI coding agent, also follow [AGENTS.md](AGENTS.md).
 
 ## Getting Started
@@ -80,6 +84,8 @@ If your change introduces new environment variables:
 ## Reporting Bugs
 
 Use the **Bug report** issue template. Include your OS, Docker version, and relevant logs (`docker compose logs --tail=50 <service>`).
+
+For behavioral or conduct concerns, report through the process in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Security Issues
 
