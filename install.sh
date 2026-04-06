@@ -472,6 +472,12 @@ if [ "$USE_PREBUILT" = "true" ]; then
     docker compose pull || { error "Pull failed. Images may not exist yet. Run with --build-local to build locally instead."; exit 1; }
     echo ""
     success "All images pulled from Docker Hub"
+    
+    # Always build nginx locally to ensure latest template is used
+    info "Building nginx locally with latest template..."
+    docker compose build nginx
+    echo ""
+    success "nginx built with latest template"
 else
     info "Building containers locally. This may take a few minutes on first run..."
     echo ""
