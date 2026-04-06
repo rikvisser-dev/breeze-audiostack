@@ -373,7 +373,11 @@ jobs:
 
             core.info(
               `Found ${connectedItems.length} connected item(s): ` +
-              (connectedItems.map(i => `#${i.number} (${i.type})`).join(', ') || 'none')
+              (
+                connectedItems
+                  .map(i => `#${i.number} (${i.type})`)
+                  .join(', ') || 'none'
+              )
             );
 
             if (connectedItems.length === 0) {
