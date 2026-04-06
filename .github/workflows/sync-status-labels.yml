@@ -4,7 +4,17 @@ on:
   issues:
     types: [labeled, unlabeled]
   pull_request:
-    types: [labeled, unlabeled, closed, reopened, review_requested, review_request_removed, ready_for_review, converted_to_draft]
+    types:
+      [
+        labeled,
+        unlabeled,
+        closed,
+        reopened,
+        review_requested,
+        review_request_removed,
+        ready_for_review,
+        converted_to_draft,
+      ]
   pull_request_review:
     types: [submitted, dismissed]
 
@@ -363,7 +373,11 @@ jobs:
 
             core.info(
               `Found ${connectedItems.length} connected item(s): ` +
-              (connectedItems.map(i => `#${i.number} (${i.type})`).join(', ') || 'none')
+              (
+                connectedItems
+                  .map(i => `#${i.number} (${i.type})`)
+                  .join(', ') || 'none'
+              )
             );
 
             if (connectedItems.length === 0) {
@@ -371,7 +385,7 @@ jobs:
               return;
             }
 
-            // ── Sync status labels to each connected item ─────────────────────────
+            // Sync status labels to each connected item.
 
             for (const item of connectedItems) {
               await syncExactStatusLabels(item.number, effectiveStatusLabels);
