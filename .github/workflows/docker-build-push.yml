@@ -39,6 +39,7 @@ jobs:
               - '**/*.md'
             affects_all:
               - 'docker-compose.yml'
+              - '.github/workflows/docker-build-push.yml'
             icecast:
               - 'services/streaming/icecast/**'
             liquidsoap:
