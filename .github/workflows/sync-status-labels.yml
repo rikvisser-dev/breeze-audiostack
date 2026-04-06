@@ -385,7 +385,7 @@ jobs:
               return;
             }
 
-            // ── Sync status labels to each connected item ─────────────────────────
+            // Sync status labels to each connected item.
 
             for (const item of connectedItems) {
               await syncExactStatusLabels(item.number, effectiveStatusLabels);
