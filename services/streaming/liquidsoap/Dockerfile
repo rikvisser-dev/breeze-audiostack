@@ -1,4 +1,4 @@
-FROM savonet/liquidsoap:v2.4.2
+FROM savonet/liquidsoap:v2.4.x-latest
 
 # hadolint ignore=DL3002
 USER root
@@ -14,6 +14,8 @@ COPY radio.liq /etc/liquidsoap/radio.liq
 
 # Ensure HLS output directory is writable
 RUN mkdir -p /hls && chmod 777 /hls
+
+USER liquidsoap
 
 EXPOSE 8010 8011
 
