@@ -1,6 +1,5 @@
-version: "2"
-
 language: "en-US"
+early_access: true
 
 tone_instructions: >
   Be concise and constructive. Focus on correctness, security, and maintainability.
@@ -14,9 +13,14 @@ reviews:
   auto_title_placeholder: "@coderabbitai"
   poem: false
   review_status: true
+  review_details: true
   collapse_walkthrough: false
   sequence_diagrams: true
   changed_files_summary: true
+  in_progress_fortune: false
+  pre_merge_checks:
+    issue_assessment:
+      mode: "warning"
   labeling_instructions:
     - label: "python"
       instructions: >
@@ -83,3 +87,16 @@ reviews:
 
 chat:
   auto_reply: true
+
+issue_enrichment:
+  auto_enrich:
+    enabled: true
+  planning:
+    enabled: true
+    auto_planning:
+      enabled: true
+      labels:
+        - "bug"
+        - "enhancement"
+        - "maintenance"
+        - "!wip"
