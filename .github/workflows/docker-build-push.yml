@@ -125,7 +125,9 @@ jobs:
     name: Build ${{ matrix.service.name }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.docs_only != 'true'
+    if: >-
+      (github.event_name == 'pull_request' && needs.changes.outputs.docs_only != 'true') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
       contents: read
       packages: write
@@ -145,7 +147,7 @@ jobs:
         uses: useblacksmith/setup-docker-builder@v1
 
       - name: Validate Docker Hub credentials
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -157,7 +159,7 @@ jobs:
           fi
 
       - name: Log in to GHCR
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -165,7 +167,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: docker.io
@@ -194,12 +196,12 @@ jobs:
         with:
           context: ${{ matrix.service.context }}
           platforms: ${{ matrix.service.platforms || 'linux/amd64,linux/arm64' }}
-          push: ${{ github.event_name == 'push' }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Verify GHCR and Docker Hub digests match
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           DOCKERHUB_USERNAME: ${{ env.DOCKERHUB_NAMESPACE }}
         run: |
