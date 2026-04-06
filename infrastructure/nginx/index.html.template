@@ -217,8 +217,32 @@
         <div class="endpoints-grid">
             <a href="/listen/stream-mp3-128" class="endpoint-card" target="_blank" rel="noopener noreferrer">
                 <div class="endpoint-info">
-                    <h3>MP3 Stream (128kbps)</h3>
-                    <p>Standard quality • High compatibility</p>
+                    <h3>MP3 (128kbps)</h3>
+                    <p>Standard quality • Widely compatible</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+            
+            <a href="/listen/stream-mp3-320" class="endpoint-card" target="_blank" rel="noopener noreferrer">
+                <div class="endpoint-info">
+                    <h3>MP3 (320kbps)</h3>
+                    <p>High quality • Maximum compatibility</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+            
+            <a href="/listen/stream-aac-128" class="endpoint-card" target="_blank" rel="noopener noreferrer">
+                <div class="endpoint-info">
+                    <h3>AAC (128kbps)</h3>
+                    <p>Modern codec • Mobile optimized</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+            
+            <a href="/listen/stream-ogg-128" class="endpoint-card" target="_blank" rel="noopener noreferrer">
+                <div class="endpoint-info">
+                    <h3>Ogg Vorbis (128kbps)</h3>
+                    <p>Open format • Linux friendly</p>
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </a>
@@ -226,7 +250,7 @@
             <a href="/hls/live.m3u8" class="endpoint-card" target="_blank" rel="noopener noreferrer">
                 <div class="endpoint-info">
                     <h3>HLS Stream</h3>
-                    <p>Adaptive bitrate • Modern web stream</p>
+                    <p>Adaptive bitrate • Modern web players</p>
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </a>
