@@ -193,10 +193,12 @@ if docker compose ps --quiet 2>/dev/null | head -1 | grep -q .; then
             info "Pulling latest changes..."
             git pull 2>/dev/null || true
             echo ""
-            info "Rebuilding containers..."
+            info "Rebuilding containers with latest templates..."
+            docker compose build --no-cache nginx
             docker compose build
             echo ""
             info "Restarting with new images..."
+            docker compose down
             docker compose up -d
             echo ""
             success "Stack updated successfully!"
