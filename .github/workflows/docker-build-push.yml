@@ -111,7 +111,7 @@ jobs:
               add_service nginx ./infrastructure/nginx \
                   linux/amd64,linux/arm64,linux/386 \
                   blacksmith-8vcpu-ubuntu-2404
-              add_service status-api ./apps/status-api linux/amd64 ''
+              add_service status-api ./apps/status-api linux/amd64,linux/arm64 ''
               add_service analytics ./services/analytics linux/amd64,linux/arm64 ''
           elif [[ "${{ steps.docs_only.outputs.value }}" != 'true' ]]; then
               [[ "${{ steps.filter.outputs.icecast }}" == 'true' ]] && \
@@ -125,7 +125,7 @@ jobs:
                       linux/amd64,linux/arm64,linux/386 \
                       blacksmith-8vcpu-ubuntu-2404
               [[ "${{ steps.filter.outputs.status_api }}" == 'true' ]] && \
-                  add_service status-api ./apps/status-api linux/amd64 ''
+                  add_service status-api ./apps/status-api linux/amd64,linux/arm64 ''
               [[ "${{ steps.filter.outputs.analytics }}" == 'true' ]] && \
                   add_service analytics ./services/analytics linux/amd64,linux/arm64 ''
           fi
