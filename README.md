@@ -16,6 +16,8 @@ For setup, operations, and troubleshooting, use the official Sonicverse docs as 
 
 This repository README is a quick project overview. If local instructions differ from the external docs, follow docs.sonicverse.eu.
 
+Contributing to this project means following the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 Join the Sonicverse OSS Slack for community support, implementation questions, and contributor collaboration.
 
 ## Architecture
