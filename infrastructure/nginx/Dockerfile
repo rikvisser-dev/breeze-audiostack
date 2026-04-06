@@ -1,4 +1,4 @@
-FROM nginx:alpine
+FROM nginx:stable-alpine-slim
 
 COPY nginx.conf /etc/nginx/nginx.conf.template
 COPY index.html.template /etc/nginx/index.html.template

@@ -111,7 +111,7 @@ For complete control, run your own redirect service:
 **Using Docker:**
 
 ```dockerfile
-FROM nginx:alpine
+FROM nginx:stable-alpine-slim
 
 RUN echo '
 server {
