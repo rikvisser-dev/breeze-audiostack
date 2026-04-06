@@ -1,4 +1,5 @@
 FROM nginx:1.29.7-alpine3.23-slim
+RUN apk add --no-cache gettext
 
 COPY nginx.conf /etc/nginx/nginx.conf.template
 COPY index.html.template /etc/nginx/index.html.template
