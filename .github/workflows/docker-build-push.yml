@@ -220,17 +220,37 @@ jobs:
         run: |
           set -euo pipefail
           short_sha="${GITHUB_SHA::7}"
+          service_name="${{ matrix.service.name }}"
           ghcr_ref="${{ env.GHCR_IMAGE_BASE }}/${{ matrix.service.name }}:sha-${short_sha}"
           dockerhub_ref="docker.io/${DOCKERHUB_USERNAME}/audiostreaming-stack-${{ matrix.service.name }}"
           dockerhub_ref="${dockerhub_ref}:sha-${short_sha}"
 
           platforms="${{ matrix.service.platforms || 'linux/amd64,linux/arm64' }}"
+          initial_delay_seconds="${VERIFY_DIGEST_INITIAL_DELAY_SECONDS:-20}"
+          max_attempts="${VERIFY_DIGEST_MAX_ATTEMPTS:-4}"
+          initial_backoff_seconds="${VERIFY_DIGEST_BACKOFF_SECONDS:-10}"
+
+          echo "Verifying runtime digests for ${service_name}: ${platforms}"
+          echo "Comparing ${ghcr_ref} against ${dockerhub_ref}"
+          echo "Waiting ${initial_delay_seconds}s before inspecting manifests for registry propagation"
+          sleep "${initial_delay_seconds}"
+
+          last_inspect_raw=""
+
+          inspect_manifest_raw() {
+              local ref="$1"
+
+              docker buildx imagetools inspect "$ref" --format '{{json .Manifest.Manifests}}' 2>&1
+          }
 
           normalize_manifest() {
               local ref="$1"
 
-              docker buildx imagetools inspect "$ref" --format '{{json .Manifest.Manifests}}' \
-                  | jq -c --arg platforms "$platforms" '
+              local raw_output=""
+
+              if raw_output="$(inspect_manifest_raw "$ref")"; then
+                  last_inspect_raw="$raw_output"
+                  printf '%s\n' "$raw_output" | jq -c --arg platforms "$platforms" '
                       def pkey($p):
                         ($p.os + "/" + $p.architecture)
                         + (if (($p.variant // "") != "") then "/" + $p.variant else "" end);
@@ -253,10 +273,59 @@ jobs:
                           | {key: pkey($platform), value: (.digest // .Digest)}
                         )
                       | from_entries'
+              else
+                  last_inspect_raw="$raw_output"
+                  return 1
+              fi
           }
 
-          ghcr_manifest="$(normalize_manifest "$ghcr_ref")"
-          dockerhub_manifest="$(normalize_manifest "$dockerhub_ref")"
+          inspect_with_retry() {
+              local ref="$1"
+              local label="$2"
+              local attempt=1
+              local backoff="${initial_backoff_seconds}"
+              local normalized_manifest=""
+
+              while [[ "$attempt" -le "$max_attempts" ]]; do
+                  echo "Inspecting ${label} manifest for ${ref} (attempt ${attempt}/${max_attempts})"
+
+                  if normalized_manifest="$(normalize_manifest "$ref")"; then
+                      if [[ -n "$normalized_manifest" && "$normalized_manifest" != "null" ]]; then
+                          printf '%s\n' "$normalized_manifest"
+                          return 0
+                      fi
+
+                      echo "Attempt ${attempt}/${max_attempts} for ${label} (${ref}) returned an empty normalized manifest; retrying in ${backoff}s" >&2
+                  else
+                      echo "Attempt ${attempt}/${max_attempts} to inspect ${label} (${ref}) failed; retrying in ${backoff}s" >&2
+                      printf 'Raw inspect response for %s (%s):\n%s\n' "${label}" "${ref}" "$last_inspect_raw" >&2
+                  fi
+
+                  if [[ "$attempt" -lt "$max_attempts" ]]; then
+                      echo "Waiting ${backoff}s before retrying ${label} (${ref})" >&2
+                      sleep "$backoff"
+                      backoff=$((backoff * 2))
+                  fi
+
+                  attempt=$((attempt + 1))
+              done
+
+              return 1
+          }
+
+          ghcr_manifest="$(inspect_with_retry "$ghcr_ref" "GHCR")" || ghcr_manifest=""
+          ghcr_inspect_raw="$last_inspect_raw"
+          dockerhub_manifest="$(inspect_with_retry "$dockerhub_ref" "Docker Hub")" || dockerhub_manifest=""
+          dockerhub_inspect_raw="$last_inspect_raw"
+
+          if [[ -z "$ghcr_manifest" || -z "$dockerhub_manifest" ]]; then
+              echo "Unable to resolve runtime platform manifests for ${service_name} between ${ghcr_ref} and ${dockerhub_ref}" >&2
+              echo "Raw GHCR inspect response for ${ghcr_ref}:" >&2
+              printf '%s\n' "$ghcr_inspect_raw" >&2
+              echo "Raw Docker Hub inspect response for ${dockerhub_ref}:" >&2
+              printf '%s\n' "$dockerhub_inspect_raw" >&2
+              exit 1
+          fi
 
           expected_list="$(
               printf '%s\n' "$platforms" \
@@ -285,19 +354,22 @@ jobs:
           echo "Docker Hub platform map: $dockerhub_manifest"
 
           if [[ -n "$missing_ghcr" ]]; then
-              echo "GHCR is missing expected platform(s) for ${{ matrix.service.name }}:" >&2
+              echo "GHCR is missing expected platform(s) for ${service_name} between ${ghcr_ref} and ${dockerhub_ref}:" >&2
               printf '%s\n' "$missing_ghcr" >&2
+              echo "Raw GHCR inspect response for ${ghcr_ref}:" >&2
+              printf '%s\n' "$ghcr_inspect_raw" >&2
+              echo "Raw Docker Hub inspect response for ${dockerhub_ref}:" >&2
+              printf '%s\n' "$dockerhub_inspect_raw" >&2
               exit 1
           fi
 
           if [[ -n "$missing_dockerhub" ]]; then
-              echo "Docker Hub is missing expected platform(s) for ${{ matrix.service.name }}:" >&2
+              echo "Docker Hub is missing expected platform(s) for ${service_name} between ${ghcr_ref} and ${dockerhub_ref}:" >&2
               printf '%s\n' "$missing_dockerhub" >&2
-              exit 1
-          fi
-
-          if [[ -z "$ghcr_manifest" || -z "$dockerhub_manifest" ]]; then
-              echo "Unable to resolve runtime platform manifests for ${{ matrix.service.name }}" >&2
+              echo "Raw GHCR inspect response for ${ghcr_ref}:" >&2
+              printf '%s\n' "$ghcr_inspect_raw" >&2
+              echo "Raw Docker Hub inspect response for ${dockerhub_ref}:" >&2
+              printf '%s\n' "$dockerhub_inspect_raw" >&2
               exit 1
           fi
 
@@ -320,8 +392,12 @@ jobs:
           )"
 
           if [[ "$(echo "$digest_mismatch" | jq 'length')" -gt 0 ]]; then
-              echo "Runtime platform digest mismatch between GHCR and Docker Hub for ${{ matrix.service.name }}" >&2
-              echo "$digest_mismatch" >&2
+              echo "Runtime platform digest mismatch between ${ghcr_ref} and ${dockerhub_ref} for ${service_name}" >&2
+              echo "$digest_mismatch" | jq -r '.[] | "Platform \(.platform): GHCR digest \(.ghcr), Docker Hub digest \(.dockerhub)"' >&2
+              echo "Raw GHCR inspect response for ${ghcr_ref}:" >&2
+              printf '%s\n' "$ghcr_inspect_raw" >&2
+              echo "Raw Docker Hub inspect response for ${dockerhub_ref}:" >&2
+              printf '%s\n' "$dockerhub_inspect_raw" >&2
               exit 1
           fi
 
