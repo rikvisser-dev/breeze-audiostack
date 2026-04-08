@@ -15,7 +15,8 @@ from urllib.parse import parse_qs, urlparse
 import requests
 
 # Configuration
-ICECAST_URL = os.getenv("ICECAST_URL") or ("http" + "://icecast:8000")
+DEFAULT_ICECAST_URL = "http://icecast:8000"
+ICECAST_URL = os.getenv("ICECAST_URL", DEFAULT_ICECAST_URL)
 ICECAST_ADMIN_USER = os.getenv("ICECAST_ADMIN_USER", "admin")
 ICECAST_ADMIN_PASSWORD = os.getenv("ICECAST_ADMIN_PASSWORD", "changeme")
 POSTHOG_API_KEY = os.getenv("POSTHOG_API_KEY", "")
@@ -232,7 +233,7 @@ class AlertHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    def log_message(self, format_string, *args):
+    def log_message(self, format, *args):  # noqa: A002 - inherited handler signature
         pass  # Suppress default request logging
 
 
@@ -250,7 +251,7 @@ def fetch_icecast_stats():
     """Fetch stats from Icecast status-json.xsl endpoint."""
     try:
         resp = requests.get(
-            f"{ICECAST_URL}/status-json.xsl",
+            f"{ICECAST_URL}/status-json.xsl",  # nosec B113 - internal Docker-network Icecast endpoint intentionally uses HTTP
             auth=(ICECAST_ADMIN_USER, ICECAST_ADMIN_PASSWORD),
             timeout=10,
         )
