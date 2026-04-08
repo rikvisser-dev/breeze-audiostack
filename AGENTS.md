@@ -5,10 +5,7 @@ This repository accepts AI-assisted changes, but agents should follow the same s
 Primary project documentation is maintained at **https://docs.sonicverse.eu** and should be treated as the source of truth for setup and operations.
 MCP documentation: **https://docs.sonicverse.eu/mcp**
 
-## MCP Routing
-
-- If a reference contains `SVAS-`, or mentions `Jira`, `jira`, or `Atlassian`, use the Jira MCP.
-- If you find a reference containing `Codacy` or `codacy`, use the Codacy MCP.
+Task tracking for this repository uses GitHub Issues. When work is tied to an issue, reference the GitHub issue number in branch names, commits, and pull requests where appropriate.
 
 ## Scope
 
@@ -45,4 +42,4 @@ MCP documentation: **https://docs.sonicverse.eu/mcp**
 
 - Update `README.md` when behavior or configuration changes.
 - Keep the PR template sections (Summary, Related issue) accurate and complete.
-- Pull requests must link to the related issue when one exists.
+- Reference the related GitHub issue when one exists, for example `Closes #123`.
