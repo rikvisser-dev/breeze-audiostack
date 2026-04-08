@@ -7,7 +7,7 @@ MCP documentation: **https://docs.sonicverse.eu/mcp**
 
 ## MCP Routing
 
-- If a reference begins with `SVAS-`, or mentions `Jira`, `jira`, or `Atlassian`, use the Jira MCP.
+- If a reference contains `SVAS-`, or mentions `Jira`, `jira`, or `Atlassian`, use the Jira MCP.
 - If you find a reference containing `Codacy` or `codacy`, use the Codacy MCP.
 
 ## Scope
