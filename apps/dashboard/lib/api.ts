@@ -11,14 +11,25 @@ export type ApiPostEndpoint =
   | "emergencyAudioDelete"
   | "emergencyAudioUpload";
 
+const API_PATHS: Record<ApiGetEndpoint | ApiPostEndpoint, string> = {
+  alerts: "/api/alerts",
+  commands: "/api/commands",
+  commandsRun: "/api/commands/run",
+  config: "/api/config",
+  containers: "/api/containers",
+  emergencyAudio: "/api/emergency-audio",
+  emergencyAudioDelete: "/api/emergency-audio/delete",
+  emergencyAudioUpload: "/api/emergency-audio/upload",
+  status: "/api/status",
+};
+
 function resolveApiUrl(path: string): string {
   if (!API_URL) {
     return path;
   }
 
-  const normalizedBase = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
-  const apiBaseUrl = new URL(normalizedBase);
-  const url = new URL(path.slice(1), normalizedBase);
+  const apiBaseUrl = new URL(API_URL);
+  const url = new URL(path, apiBaseUrl);
 
   if (url.origin !== apiBaseUrl.origin) {
     throw new Error(`Cross-origin API path is not allowed: ${path}`);
@@ -27,45 +38,11 @@ function resolveApiUrl(path: string): string {
   return url.toString();
 }
 
-function getRequest(
-  endpoint: ApiGetEndpoint,
-  headers: HeadersInit
-): Promise<Response> {
-  switch (endpoint) {
-    case "alerts":
-      return fetch(resolveApiUrl("/api/alerts"), { headers });
-    case "commands":
-      return fetch(resolveApiUrl("/api/commands"), { headers });
-    case "config":
-      return fetch(resolveApiUrl("/api/config"), { headers });
-    case "containers":
-      return fetch(resolveApiUrl("/api/containers"), { headers });
-    case "emergencyAudio":
-      return fetch(resolveApiUrl("/api/emergency-audio"), { headers });
-    case "status":
-      return fetch(resolveApiUrl("/api/status"), { headers });
-  }
-}
-
-function postRequest(
-  endpoint: ApiPostEndpoint,
-  init: RequestInit
-): Promise<Response> {
-  switch (endpoint) {
-    case "commandsRun":
-      return fetch(resolveApiUrl("/api/commands/run"), init);
-    case "emergencyAudioDelete":
-      return fetch(resolveApiUrl("/api/emergency-audio/delete"), init);
-    case "emergencyAudioUpload":
-      return fetch(resolveApiUrl("/api/emergency-audio/upload"), init);
-  }
-}
-
 export async function apiFetch<T>(
   endpoint: ApiGetEndpoint,
   jwt: string
 ): Promise<T> {
-  const res = await getRequest(endpoint, {
+  const res = await fetch(resolveApiUrl(API_PATHS[endpoint]), {
     Authorization: `Bearer ${jwt}`,
   });
   if (res.status === 401) throw new Error("Unauthorized");
@@ -90,7 +67,7 @@ export async function apiPost<T>(
     reqBody = JSON.stringify(body);
   }
 
-  const res = await postRequest(endpoint, {
+  const res = await fetch(resolveApiUrl(API_PATHS[endpoint]), {
     method: "POST",
     headers,
     body: reqBody,
