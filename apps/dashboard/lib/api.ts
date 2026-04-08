@@ -38,12 +38,29 @@ function resolveApiUrl(path: string): string {
   return url.toString();
 }
 
+function getApiPath(endpoint: ApiGetEndpoint): string {
+  if (endpoint === "alerts") return API_PATHS.alerts;
+  if (endpoint === "commands") return API_PATHS.commands;
+  if (endpoint === "config") return API_PATHS.config;
+  if (endpoint === "containers") return API_PATHS.containers;
+  if (endpoint === "emergencyAudio") return API_PATHS.emergencyAudio;
+  return API_PATHS.status;
+}
+
+function getPostApiPath(endpoint: ApiPostEndpoint): string {
+  if (endpoint === "commandsRun") return API_PATHS.commandsRun;
+  if (endpoint === "emergencyAudioDelete") return API_PATHS.emergencyAudioDelete;
+  return API_PATHS.emergencyAudioUpload;
+}
+
 export async function apiFetch<T>(
   endpoint: ApiGetEndpoint,
   jwt: string
 ): Promise<T> {
-  const res = await fetch(resolveApiUrl(API_PATHS[endpoint]), {
-    Authorization: `Bearer ${jwt}`,
+  const res = await fetch(resolveApiUrl(getApiPath(endpoint)), {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+    },
   });
   if (res.status === 401) throw new Error("Unauthorized");
   if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -67,7 +84,7 @@ export async function apiPost<T>(
     reqBody = JSON.stringify(body);
   }
 
-  const res = await fetch(resolveApiUrl(API_PATHS[endpoint]), {
+  const res = await fetch(resolveApiUrl(getPostApiPath(endpoint)), {
     method: "POST",
     headers,
     body: reqBody,
