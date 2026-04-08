@@ -10,12 +10,12 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urlunsplit
 
 import requests
 
 # Configuration
-DEFAULT_ICECAST_URL = "http://icecast:8000"
+DEFAULT_ICECAST_URL = "icecast:8000"
 ICECAST_URL = os.getenv("ICECAST_URL", DEFAULT_ICECAST_URL)
 ICECAST_ADMIN_USER = os.getenv("ICECAST_ADMIN_USER", "admin")
 ICECAST_ADMIN_PASSWORD = os.getenv("ICECAST_ADMIN_PASSWORD", "changeme")
@@ -233,7 +233,7 @@ class AlertHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    def log_message(self, format, *args):  # noqa: A002 - inherited handler signature
+    def log_message(self, *args, **kwargs):
         pass  # Suppress default request logging
 
 
@@ -247,11 +247,20 @@ def start_webhook_server():
 # Icecast stats polling → PostHog
 # ============================================================
 
+def get_icecast_base_url():
+    """Return the Icecast endpoint, defaulting to the internal service over HTTP."""
+    parsed = urlparse(ICECAST_URL)
+    if parsed.scheme:
+        return ICECAST_URL.rstrip("/")
+
+    return urlunsplit(("http", ICECAST_URL, "", "", "")).rstrip("/")
+
+
 def fetch_icecast_stats():
     """Fetch stats from Icecast status-json.xsl endpoint."""
     try:
         resp = requests.get(
-            f"{ICECAST_URL}/status-json.xsl",  # nosec B113 - internal Docker-network Icecast endpoint intentionally uses HTTP
+            f"{get_icecast_base_url()}/status-json.xsl",
             auth=(ICECAST_ADMIN_USER, ICECAST_ADMIN_PASSWORD),
             timeout=10,
         )
