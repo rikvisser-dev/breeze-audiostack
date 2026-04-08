@@ -76,7 +76,7 @@ download_file() {
 
     echo "Downloading from URL: ${url}"
     if command -v curl > /dev/null 2>&1; then
-        curl -# -LS "$url" -O
+        curl -# -fLS "$url" -O
     elif command -v wget > /dev/null 2>&1; then
         wget "$url"
     else
@@ -120,6 +120,9 @@ fi
 if [ ! -f "$version_file" ] || [ "${1:-}" = "update" ]; then
     echo "ℹ️  Fetching latest version..."
     version=$(get_latest_version)
+    if [ -z "$version" ]; then
+        fatal "Error: Could not determine the latest Codacy CLI version from GitHub."
+    fi
     mkdir -p "$CODACY_CLI_V2_TMP_FOLDER"
     echo "version: \"$version\"" > "$version_file"
 fi
