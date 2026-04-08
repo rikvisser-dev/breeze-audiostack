@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
 
-set -e +o pipefail
+set -euo pipefail
+
+fatal() {
+    echo "$1" >&2
+    exit 1
+}
 
 # Set up paths first
 bin_name="codacy-cli-v2"
@@ -22,7 +27,7 @@ case "$arch" in
   ;;
 esac
 
-if [ -z "$CODACY_CLI_V2_TMP_FOLDER" ]; then
+if [ -z "${CODACY_CLI_V2_TMP_FOLDER:-}" ]; then
     if [ "$(uname)" = "Linux" ]; then
         CODACY_CLI_V2_TMP_FOLDER="$HOME/.cache/codacy/codacy-cli-v2"
     elif [ "$(uname)" = "Darwin" ]; then
@@ -48,7 +53,7 @@ get_version_from_yaml() {
 
 get_latest_version() {
     local response
-    if [ -n "$GH_TOKEN" ]; then
+    if [ -n "${GH_TOKEN:-}" ]; then
         response=$(curl -Lq --header "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/codacy/codacy-cli-v2/releases/latest" 2>/dev/null)
     else
         response=$(curl -Lq "https://api.github.com/repos/codacy/codacy-cli-v2/releases/latest" 2>/dev/null)
@@ -106,13 +111,13 @@ download_cli() {
 }
 
 # Warn if CODACY_CLI_V2_VERSION is set and update is requested
-if [ -n "$CODACY_CLI_V2_VERSION" ] && [ "$1" = "update" ]; then
+if [ -n "${CODACY_CLI_V2_VERSION:-}" ] && [ "${1:-}" = "update" ]; then
     echo "⚠️  Warning: Performing update with forced version $CODACY_CLI_V2_VERSION"
     echo "    Unset CODACY_CLI_V2_VERSION to use the latest version"
 fi
 
 # Ensure version.yaml exists and is up to date
-if [ ! -f "$version_file" ] || [ "$1" = "update" ]; then
+if [ ! -f "$version_file" ] || [ "${1:-}" = "update" ]; then
     echo "ℹ️  Fetching latest version..."
     version=$(get_latest_version)
     mkdir -p "$CODACY_CLI_V2_TMP_FOLDER"
@@ -120,7 +125,7 @@ if [ ! -f "$version_file" ] || [ "$1" = "update" ]; then
 fi
 
 # Set the version to use
-if [ -n "$CODACY_CLI_V2_VERSION" ]; then
+if [ -n "${CODACY_CLI_V2_VERSION:-}" ]; then
     version="$CODACY_CLI_V2_VERSION"
 else
     version=$(get_version_from_yaml)
@@ -138,12 +143,12 @@ download_cli "$bin_folder" "$bin_path" "$version"
 chmod +x "$bin_path"
 
 run_command="$bin_path"
-if [ -z "$run_command" ]; then
+if [ ! -f "$run_command" ]; then
     fatal "Codacy cli v2 binary could not be found."
 fi
 
 if [ "$#" -eq 1 ] && [ "$1" = "download" ]; then
     echo "Codacy cli v2 download succeeded"
 else
-    eval "$run_command $*"
+    exec "$run_command" "$@"
 fi
